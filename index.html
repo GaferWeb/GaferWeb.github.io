@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaUd — Языковая модель ИИ</title>
+  <style>
+    :root {
+      --bg-color: #0a0a0a;
+      --element-bg: #1a1a1a;
+      --accent-color: #8b5cf6;
+      --text-color: #ffffff;
+      --overlay-color: rgba(0, 0, 0, 0.6);
+    }
+
+    [data-theme="light"] {
+      --bg-color: #f5f5f5;
+      --element-bg: #e5e5e5;
+      --accent-color: #7c3aed;
+      --text-color: #000000;
+      --overlay-color: rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease;
+    }
+
+    #splash-logo {
+      font-size: 4rem;
+      font-weight: 800;
+      background: linear-gradient(to top, transparent 50%, var(--accent-color) 50%);
+      background-size: 100% 200%;
+      background-position: bottom;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: fillLogo 3s ease-in-out forwards;
+    }
+
+    @keyframes fillLogo {
+      to {
+        background-position: top;
+      }
+    }
+
+    #splash-subtitle {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      opacity: 0.8;
+    }
+
+    #background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .ball {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(20px);
+      opacity: 0.4;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+    }
+
+    .logo {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--accent-color);
+      transition: color 0.3s ease;
+    }
+
+    .logo.generating {
+      color: #60a5fa;
+    }
+
+    .theme-toggle, .menu-toggle {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-color);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--overlay-color);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 998;
+    }
+
+    .overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .menu {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 999;
+      transition: right 0.3s ease;
+    }
+
+    .menu.active {
+      right: 0;
+    }
+
+    .menu-close {
+      align-self: flex-end;
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .menu-button {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .main-interface, .chat-interface {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      padding-top: 2rem;
+    }
+
+    .chat-interface {
+      display: none;
+      width: 100%;
+      height: calc(100vh - 120px);
+      flex-direction: column;
+    }
+
+    .chat-interface.active {
+      display: flex;
+    }
+
+    .input-area {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 1rem;
+      background-color: rgba(26, 26, 26, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      color: var(--text-color);
+      font-size: 1.1rem;
+      resize: none;
+      min-height: 60px;
+      backdrop-filter: blur(10px);
+    }
+
+    [data-theme="light"] textarea {
+      background-color: rgba(229, 229, 229, 0.6);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .response-area {
+      width: 100%;
+      max-width: 600px;
+      padding: 1.5rem;
+      background-color: rgba(26, 26, 26, 0.4);
+      border-radius: 12px;
+      min-height: 100px;
+      backdrop-filter: blur(10px);
+      line-height: 1.6;
+    }
+
+    [data-theme="light"] .response-area {
+      background-color: rgba(229, 229, 229, 0.6);
+    }
+
+    .chat-messages {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      line-height: 1.5;
+    }
+
+    .user-message {
+      align-self: flex-end;
+      background-color: var(--element-bg);
+    }
+
+    .ai-message {
+      align-self: flex-start;
+      background-color: var(--element-bg);
+      border-left: 3px solid var(--accent-color);
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0 1rem 1rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 0.75rem;
+      background-color: var(--element-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: var(--text-color);
+    }
+
+    [data-theme="light"] .chat-input {
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .send-button {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .new-dialog-button {
+      background: none;
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .logo {
+        font-size: 2rem;
+      }
+
+      .menu {
+        width: 240px;
+      }
+
+      textarea, .response-area, .chat-input {
+        font-size: 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #splash-logo {
+        font-size: 2.5rem;
+      }
+
+      .logo {
+        font-size: 1.75rem;
+      }
+
+      .menu {
+        width: 200px;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div id="splash">
+    <div id="splash-logo">MaUd</div>
+    <div id="splash-subtitle">ИИ-ассистент</div>
+  </div>
+
+  <div id="background"></div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <nav class="menu" id="menu">
+    <button class="menu-close" id="menuClose" aria-label="Закрыть меню">×</button>
+    <div class="menu-item">
+      <span>Режим чата</span>
+      <button class="menu-button" id="toggleChatMode">Включить</button>
+    </div>
+    <div class="menu-item">
+      <span>Документация</span>
+    </div>
+    <div class="menu-item">
+      <span>API</span>
+    </div>
+    <div class="menu-item">
+      <span>О нас</span>
+    </div>
+  </nav>
+
+  <div class="container">
+    <header>
+      <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">☀️</button>
+      <div class="logo" id="mainLogo">MaUd</div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Открыть меню">☰</button>
+    </header>
+
+    <div class="main-interface" id="mainInterface">
+      <div class="input-area">
+        <textarea id="mainInput" placeholder="Спросите у ИИ..."></textarea>
+      </div>
+      <div class="response-area" id="mainResponse">Здесь появится ответ от ИИ.</div>
+      <button class="new-dialog-button" id="newDialogMain">Новый диалог</button>
+    </div>
+
+    <div class="chat-interface" id="chatInterface">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message ai-message">Привет! Чем могу помочь?</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" class="chat-input" id="chatInput" placeholder="Введите сообщение...">
+        <button class="send-button" id="sendButton">Отправить</button>
+      </div>
+      <button class="new-dialog-button" id="newDialogChat">Новый диалог</button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const splash = document.getElementById('splash');
+      const splashSubtitle = document.getElementById('splash-subtitle');
+      const background = document.getElementById('background');
+      const themeToggle = document.getElementById('themeToggle');
+      const menuToggle = document.getElementById('menuToggle');
+      const menuClose = document.getElementById('menuClose');
+      const overlay = document.getElementById('overlay');
+      const menu = document.getElementById('menu');
+      const toggleChatMode = document.getElementById('toggleChatMode');
+      const mainInterface = document.getElementById('mainInterface');
+      const chatInterface = document.getElementById('chatInterface');
+      const mainInput = document.getElementById('mainInput');
+      const mainResponse = document.getElementById('mainResponse');
+      const chatInput = document.getElementById('chatInput');
+      const chatMessages = document.getElementById('chatMessages');
+      const sendButton = document.getElementById('sendButton');
+      const newDialogMain = document.getElementById('newDialogMain');
+      const newDialogChat = document.getElementById('newDialogChat');
+      const mainLogo = document.getElementById('mainLogo');
+
+      const subtitles = ['ИИ-ассистент', 'Помощник', 'Развитие', 'Искусственный интеллект'];
+      let subtitleIndex = 0;
+
+      const updateSubtitle = () => {
+        splashSubtitle.textContent = subtitles[subtitleIndex];
+        subtitleIndex = (subtitleIndex + 1) % subtitles.length;
+      };
+
+      const subtitleInterval = setInterval(updateSubtitle, 1000);
+
+      setTimeout(() => {
+        clearInterval(subtitleInterval);
+        splash.style.opacity = '0';
+        setTimeout(() => {
+          splash.style.display = 'none';
+        }, 500);
+      }, 5000);
+
+      const createBalls = () => {
+        const ballCount = 15;
+        for (let i = 0; i < ballCount; i++) {
+          const ball = document.createElement('div');
+          ball.classList.add('ball');
+
+          const size = 30 + Math.random() * 70;
+          const left = Math.random() * 100;
+          const top = Math.random() * 100;
+          const hue = Math.floor(Math.random() * 360);
+          const formDuration = 8 + Math.random() * 12;
+          const colorDuration = 20 + Math.random() * 30;
+
+          ball.style.width = `${size}px`;
+          ball.style.height = `${size * 0.6}px`;
+          ball.style.left = `${left}%`;
+          ball.style.top = `${top}%`;
+          ball.style.background = `hsl(${hue}, 70%, 60%)`;
+
+          const keyframesForm = `
+            @keyframes morph${i} {
+              0%, 100% { border-radius: 50% / 40%; transform: scale(1); }
+              25% { border-radius: 50% / 60%; transform: scale(1.1); }
+              50% { border-radius: 50%; transform: scale(1); }
+              75% { border-radius: 60% / 50%; transform: scale(0.9); }
+            }
+          `;
+
+          const keyframesColor = `
+            @keyframes color${i} {
+              0% { filter: hue-rotate(0deg) blur(20px); }
+              100% { filter: hue-rotate(360deg) blur(20px); }
+            }
+          `;
+
+          const style = document.createElement('style');
+          style.textContent = keyframesForm + keyframesColor;
+          document.head.appendChild(style);
+
+          ball.style.animation = `morph${i} ${formDuration}s infinite ease-in-out, color${i} ${colorDuration}s infinite linear`;
+
+          background.appendChild(ball);
+        }
+      };
+
+      createBalls();
+
+      let isChatMode = false;
+
+      const updateChatModeButton = () => {
+        toggleChatMode.textContent = isChatMode ? 'Выключить' : 'Включить';
+      };
+
+      const switchToChatMode = () => {
+        isChatMode = true;
+        mainInterface.style.display = 'none';
+        chatInterface.classList.add('active');
+        updateChatModeButton();
+      };
+
+      const switchToMainMode = () => {
+        isChatMode = false;
+        chatInterface.classList.remove('active');
+        mainInterface.style.display = 'flex';
+        updateChatModeButton();
+      };
+
+      themeToggle.addEventListener('click', () => {
+        const currentTheme = document.body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', newTheme);
+        themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      });
+
+      const openMenu = () => {
+        menu.classList.add('active');
+        overlay.classList.add('active');
+        menuToggle.setAttribute('aria-expanded', 'true');
+      };
+
+      const closeMenu = () => {
+        menu.classList.remove('active');
+        overlay.classList.remove('active');
+        menuToggle.setAttribute('aria-expanded', 'false');
+      };
+
+      menuToggle.addEventListener('click', openMenu);
+      menuClose.addEventListener('click', closeMenu);
+      overlay.addEventListener('click', closeMenu);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeMenu();
+        }
+      });
+
+      toggleChatMode.addEventListener('click', () => {
+        closeMenu();
+        if (isChatMode) {
+          switchToMainMode();
+        } else {
+          switchToChatMode();
+        }
+      });
+
+      const simulateAIResponse = (input, isChat = false) => {
+        mainLogo.classList.add('generating');
+        setTimeout(() => {
+          const responses = [
+            'Это пример ответа от языковой модели MaUd.',
+            'Я — искусственный интеллект, созданный для помощи вам.',
+            'Спросите что-нибудь ещё — я всегда готов помочь!',
+            'MaUd использует передовые технологии обработки естественного языка.',
+            'Ваш запрос обработан успешно. Чем ещё могу помочь?'
+          ];
+          const response = responses[Math.floor(Math.random() * responses.length)];
+
+          if (isChat) {
+            const aiMessage = document.createElement('div');
+            aiMessage.classList.add('message', 'ai-message');
+            aiMessage.textContent = response;
+            chatMessages.appendChild(aiMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          } else {
+            mainResponse.textContent = response;
+          }
+
+          mainLogo.classList.remove('generating');
+        }, 800);
+      };
+
+      mainInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const text = mainInput.value.trim();
+          if (text) {
+            simulateAIResponse(text, false);
+            mainInput.value = '';
+          }
+        }
+      });
+
+      sendButton.addEventListener('click', () => {
+        const text = chatInput.value.trim();
+        if (text) {
+          const userMessage = document.createElement('div');
+          userMessage.classList.add('message', 'user-message');
+          userMessage.textContent = text;
+          chatMessages.appendChild(userMessage);
+
+          chatInput.value = '';
+          simulateAIResponse(text, true);
+        }
+      });
+
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          sendButton.click();
+        }
+      });
+
+      newDialogMain.addEventListener('click', () => {
+        mainInput.value = '';
+        mainResponse.textContent = 'Здесь появится ответ от ИИ.';
+      });
+
+      newDialogChat.addEventListener('click', () => {
+        chatMessages.innerHTML = '<div class="message ai-message">Привет! Чем могу помочь?</div>';
+      });
+
+      updateChatModeButton();
+    });
+  </script>
+</body>
+</html>
