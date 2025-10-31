@@ -794,7 +794,7 @@
     gsiScript.defer = true;
     document.head.appendChild(gsiScript);
 
-    // SDK Firebase (compat версии)
+    // SDK Firebase (compat версии) - ВАЖНО: Загружаем все необходимые compat-библиотеки
     const firebaseAppScript = document.createElement('script');
     firebaseAppScript.type = 'module';
     firebaseAppScript.src = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js';
@@ -907,7 +907,9 @@
           try {
             firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
             auth = firebase.auth();
-            db = firebase.firestore(); // Инициализируем Firestore
+            // Инициализируем Firestore с использованием compat-библиотеки
+            // db = firebase.firestore(); // Старый стиль, может не работать с compat
+            db = firebase.firestore(); // В compat версии также используется firebase.firestore()
             initializedFirebase = true;
             console.log("Firebase initialized successfully.");
 
