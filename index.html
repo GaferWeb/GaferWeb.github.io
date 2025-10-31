@@ -60,7 +60,7 @@
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      animation: fillLogo 3s ease-in-out forwards;
+      animation: fillLogo 2s ease-in-out forwards;
     }
 
     @keyframes fillLogo {
@@ -536,13 +536,118 @@
       cursor: none !important;
     }
 
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      z-index: 997;
+      transition: left 0.3s ease;
+    }
+
+    .sidebar.active {
+      left: 0;
+    }
+
+    .sidebar-header {
+      background-color: #8A2BE2;
+      color: white;
+      padding: 0.75rem;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-chat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .sidebar-chat-item {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background-color 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    [data-theme="dark"] .sidebar-chat-item:hover {
+      background-color: #f5f5f5;
+    }
+
+    [data-theme="light"] .sidebar-chat-item:hover {
+      background-color: #dcdcdc;
+    }
+
+    .sidebar-chat-delete {
+      background: none;
+      border: none;
+      color: #ff4d4d;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0.25rem;
+    }
+
+    .sidebar-toggle {
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      background-color: var(--element-bg);
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 996;
+      transition: left 0.3s ease;
+    }
+
+    .sidebar-toggle.active {
+      left: 280px;
+    }
+
+    .sidebar-toggle.hidden {
+      display: none;
+    }
+
+    .back-to-menu-button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+    }
+
     @media (max-width: 768px) {
       .logo {
         font-size: 2rem;
       }
 
-      .menu, .settings-panel {
+      .menu, .settings-panel, .sidebar {
         width: 240px;
+      }
+
+      .sidebar-toggle.active {
+        left: 240px;
       }
 
       textarea, .response-area, .chat-input {
@@ -559,8 +664,12 @@
         font-size: 1.75rem;
       }
 
-      .menu, .settings-panel {
+      .menu, .settings-panel, .sidebar {
         width: 200px;
+      }
+
+      .sidebar-toggle.active {
+        left: 200px;
       }
     }
   </style>
@@ -576,6 +685,19 @@
   <div class="cursor" id="customCursor"></div>
 
   <div class="overlay" id="overlay"></div>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button class="back-to-menu-button" id="backToMenuButton">←</button>
+      <span>Ваши чаты</span>
+      <span></span> <!-- Пустой элемент для выравнивания -->
+    </div>
+    <div class="sidebar-chat-list" id="sidebarChatList">
+      <!-- Чаты будут добавлены сюда динамически -->
+    </div>
+  </div>
+
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Показать/скрыть чаты">→</button>
 
   <nav class="menu" id="menu">
     <button class="menu-back" id="menuBack" aria-label="Назад">×</button>
@@ -602,15 +724,9 @@
       <div class="language-option" data-lang="es">Español</div>
       <div class="cursor-header">Круглый курсор</div>
       <div class="menu-item">
-        <span>Включить</span>
-        <div class="toggle-switch">
-          <input type="checkbox" id="cursorToggle" checked>
-          <span class="slider"></span>
-        </div>
-      </div>
-      <div class="menu-item">
         <span>Цвет</span>
         <div class="color-picker-button" id="colorPickerButton" style="background-color: rgba(139, 92, 246, 0.5);"></div>
+        <input type="color" id="colorPicker" value="#8b5cf6" style="display: none;">
       </div>
     </div>
   </div>
@@ -679,17 +795,51 @@
       const mainLogo = document.getElementById('mainLogo');
       const viewBlog = document.getElementById('viewBlog');
       const languageOptions = document.querySelectorAll('.language-option');
-      const cursorToggle = document.getElementById('cursorToggle');
       const colorPickerButton = document.getElementById('colorPickerButton');
+      const colorPicker = document.getElementById('colorPicker');
       const modalOverlay = document.getElementById('modalOverlay');
       const confirmYes = document.getElementById('confirmYes');
       const confirmNo = document.getElementById('confirmNo');
       const modalText = document.getElementById('modalText');
+      const sidebar = document.getElementById('sidebar');
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const sidebarChatList = document.getElementById('sidebarChatList');
+      const backToMenuButton = document.getElementById('backToMenuButton');
 
       let currentLang = 'ru';
       let selectedLang = null;
       let isCursorEnabled = true;
       let selectedCursorColor = 'rgba(139, 92, 246, 0.5)';
+      let isChatMode = false;
+      let currentChatId = null;
+      let chats = {};
+
+      // Загрузка чатов из localStorage при запуске
+      const loadChatsFromStorage = () => {
+        const storedChats = localStorage.getItem('maud_chats');
+        if (storedChats) {
+          try {
+            chats = JSON.parse(storedChats);
+            // Удаление устаревших чатов (> 1 часа)
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            for (const id in chats) {
+              if (chats[id].timestamp < oneHourAgo) {
+                delete chats[id];
+              }
+            }
+            localStorage.setItem('maud_chats', JSON.stringify(chats));
+          } catch (e) {
+            console.error("Ошибка при парсинге чатов из localStorage:", e);
+            chats = {};
+          }
+        }
+        updateChatList();
+      };
+
+      // Сохранение чатов в localStorage
+      const saveChatsToStorage = () => {
+        localStorage.setItem('maud_chats', JSON.stringify(chats));
+      };
 
       const translations = {
         ru: {
@@ -845,12 +995,8 @@
           if (langCode === 'es') opt.textContent = langCode === 'es' ? 'Español' : (lang === 'ru' ? 'Испанский' : 'Español');
         });
 
-        // Обновление текста переключателя курсора
-        const cursorEnableSpan = document.querySelector('.cursor-header').nextElementSibling.querySelector('span');
-        if (cursorEnableSpan) cursorEnableSpan.textContent = t.settingsCursorEnable;
-
         // Обновление текста выбора цвета
-        const cursorColorSpan = document.querySelector('.cursor-header').nextElementSibling.nextElementSibling.querySelector('span');
+        const cursorColorSpan = document.querySelector('.cursor-header').nextElementSibling.querySelector('span');
         if (cursorColorSpan) cursorColorSpan.textContent = t.settingsCursorColor;
 
         // Обновление модального окна
@@ -875,7 +1021,7 @@
         setTimeout(() => {
           splash.style.display = 'none';
         }, 500);
-      }, 5000);
+      }, 3000);
 
       const createBalls = () => {
         const ballCount = 17;
@@ -932,8 +1078,6 @@
 
       createBalls();
 
-      let isChatMode = false;
-
       const updateChatModeButton = () => {
         const t = translations[currentLang];
         toggleChatMode.textContent = isChatMode ? t.menuChatDisable : t.menuChatEnable;
@@ -943,14 +1087,28 @@
         isChatMode = true;
         mainInterface.style.display = 'none';
         chatInterface.classList.add('active');
+        sidebar.classList.add('active');
+        sidebarToggle.classList.add('active');
+        sidebarToggle.classList.remove('hidden');
+        sidebarToggle.textContent = '←';
         updateChatModeButton();
+        // Инициализируем новый чат при первом входе в режим
+        if (!currentChatId) {
+            startNewChat();
+        }
       };
 
       const switchToMainMode = () => {
         isChatMode = false;
         chatInterface.classList.remove('active');
         mainInterface.style.display = 'flex';
+        sidebar.classList.remove('active');
+        sidebarToggle.classList.remove('active');
+        sidebarToggle.classList.add('hidden');
+        sidebarToggle.textContent = '→';
         updateChatModeButton();
+        // Очищаем текущий чат при выходе
+        currentChatId = null;
       };
 
       // Логика курсора
@@ -1069,20 +1227,15 @@
         });
       });
 
-      cursorToggle.addEventListener('change', () => {
-        const newCursorState = cursorToggle.checked;
-        if (newCursorState !== isCursorEnabled) {
-          openModal();
-        }
+      colorPickerButton.addEventListener('click', () => {
+        colorPicker.click();
       });
 
-      colorPickerButton.addEventListener('click', () => {
-        const newColor = prompt('Введите цвет в формате rgba(r, g, b, a) или hex (#RRGGBB):', selectedCursorColor);
-        if (newColor) {
-          selectedCursorColor = newColor;
-          colorPickerButton.style.backgroundColor = newColor;
-          openModal();
-        }
+      colorPicker.addEventListener('change', (e) => {
+        const newColor = e.target.value;
+        selectedCursorColor = newColor;
+        colorPickerButton.style.backgroundColor = newColor;
+        openModal();
       });
 
       const openModal = () => {
@@ -1106,7 +1259,6 @@
           selectedLang = null;
         }
         if (modalOverlay.classList.contains('active')) return;
-        cursorToggle.checked = isCursorEnabled;
         colorPickerButton.style.backgroundColor = selectedCursorColor;
       };
 
@@ -1116,7 +1268,6 @@
           updateTexts(currentLang);
           selectedLang = null;
         }
-        isCursorEnabled = cursorToggle.checked;
         updateCursor();
         closeModal();
       });
@@ -1135,6 +1286,13 @@
             aiMessage.textContent = response;
             chatMessages.appendChild(aiMessage);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Сохраняем сообщение в текущем чате
+            if (currentChatId && chats[currentChatId]) {
+                chats[currentChatId].messages.push({ text: response, isUser: false });
+                chats[currentChatId].timestamp = Date.now(); // Обновляем время
+                saveChatsToStorage();
+            }
           } else {
             mainResponse.textContent = response;
           }
@@ -1161,6 +1319,14 @@
           userMessage.classList.add('message', 'user-message');
           userMessage.textContent = text;
           chatMessages.appendChild(userMessage);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+
+          // Сохраняем сообщение пользователя в текущем чате
+          if (currentChatId && chats[currentChatId]) {
+              chats[currentChatId].messages.push({ text: text, isUser: true });
+              chats[currentChatId].timestamp = Date.now(); // Обновляем время
+              saveChatsToStorage();
+          }
 
           chatInput.value = '';
           simulateAIResponse(text, true);
@@ -1178,13 +1344,166 @@
         mainResponse.textContent = translations[currentLang].responseAreaText;
       });
 
+      // --- Логика чатов ---
+      
+      const generateChatTitle = (firstUserMessage) => {
+          if (firstUserMessage) {
+              // Берем первые 20 символов первого сообщения пользователя
+              return firstUserMessage.substring(0, 20) + (firstUserMessage.length > 20 ? '...' : '');
+          } else {
+              // Иначе используем дату и время
+              const now = new Date();
+              return `Чат от ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+          }
+      };
+
+      const saveCurrentChat = () => {
+          if (currentChatId && chats[currentChatId] && chats[currentChatId].messages.length > 0) {
+              // Генерируем название, если оно еще не установлено или стандартное
+              if (!chats[currentChatId].title || chats[currentChatId].title.startsWith('Чат от')) {
+                  const firstUserMsg = chats[currentChatId].messages.find(m => m.isUser)?.text;
+                  chats[currentChatId].title = generateChatTitle(firstUserMsg);
+              }
+              chats[currentChatId].timestamp = Date.now(); // Обновляем время последнего использования
+              saveChatsToStorage();
+              updateChatList();
+          }
+      };
+
+      const startNewChat = () => {
+          saveCurrentChat(); // Сохраняем предыдущий чат, если он есть
+          
+          const newChatId = 'chat_' + Date.now();
+          const welcomeMessage = translations[currentLang].chatWelcome;
+          
+          chats[newChatId] = {
+              id: newChatId,
+              title: '', // Будет сгенерировано при сохранении
+              messages: [{ text: welcomeMessage, isUser: false }],
+              timestamp: Date.now()
+          };
+          
+          currentChatId = newChatId;
+          loadChatMessages(newChatId);
+      };
+
+      const loadChatMessages = (chatId) => {
+          if (chats[chatId]) {
+              chatMessages.innerHTML = '';
+              chats[chatId].messages.forEach(msg => {
+                  const messageElement = document.createElement('div');
+                  messageElement.classList.add('message');
+                  messageElement.classList.add(msg.isUser ? 'user-message' : 'ai-message');
+                  messageElement.textContent = msg.text;
+                  chatMessages.appendChild(messageElement);
+              });
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+          }
+      };
+
+      const deleteChat = (chatId) => {
+          if (chats[chatId]) {
+              delete chats[chatId];
+              saveChatsToStorage();
+              updateChatList();
+              
+              // Если удалили текущий чат, создаем новый
+              if (currentChatId === chatId) {
+                  startNewChat();
+              }
+          }
+      };
+
+      const updateChatList = () => {
+          sidebarChatList.innerHTML = '';
+          
+          // Преобразуем объект чатов в массив и сортируем по времени (новые сверху)
+          const chatArray = Object.values(chats).sort((a, b) => b.timestamp - a.timestamp);
+          
+          chatArray.forEach(chat => {
+              const item = document.createElement('div');
+              item.className = 'sidebar-chat-item';
+              item.dataset.chatId = chat.id;
+              
+              const titleSpan = document.createElement('span');
+              titleSpan.textContent = chat.title || generateChatTitle(chat.messages.find(m => m.isUser)?.text);
+              
+              const deleteBtn = document.createElement('button');
+              deleteBtn.className = 'sidebar-chat-delete';
+              deleteBtn.textContent = '×';
+              deleteBtn.dataset.chatId = chat.id;
+              
+              item.appendChild(titleSpan);
+              item.appendChild(deleteBtn);
+              sidebarChatList.appendChild(item);
+          });
+          
+          // Добавляем обработчики событий для новых элементов
+          document.querySelectorAll('.sidebar-chat-item span').forEach(span => {
+              span.addEventListener('click', (e) => {
+                  const chatId = e.target.parentElement.dataset.chatId;
+                  if (chatId) {
+                      saveCurrentChat(); // Сохраняем текущий перед переключением
+                      currentChatId = chatId;
+                      loadChatMessages(chatId);
+                      
+                      // Закрываем сайдбар
+                      sidebar.classList.remove('active');
+                      sidebarToggle.classList.remove('active');
+                      sidebarToggle.textContent = '→';
+                  }
+              });
+          });
+          
+          document.querySelectorAll('.sidebar-chat-delete').forEach(btn => {
+              btn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const chatId = e.target.dataset.chatId;
+                  if (chatId) {
+                      deleteChat(chatId);
+                  }
+              });
+          });
+      };
+
       newDialogChat.addEventListener('click', () => {
-        chatMessages.innerHTML = `<div class="message ai-message">${translations[currentLang].chatWelcome}</div>`;
+          if (isChatMode) {
+              startNewChat();
+          }
       });
+
+      // --- Конец логики чатов ---
 
       updateCursor();
       updateChatModeButton();
       updateTexts(currentLang);
+      
+      // Инициализация чатов
+      loadChatsFromStorage();
+      
+      // Скрыть кнопку при загрузке, если режим чата выключен
+      if (!isChatMode) {
+        sidebarToggle.classList.add('hidden');
+      }
+
+      // Обработчики для кнопок сайдбара
+      sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        sidebarToggle.classList.toggle('active');
+        // Переключение текста кнопки
+        if (sidebar.classList.contains('active')) {
+          sidebarToggle.textContent = '←';
+        } else {
+          sidebarToggle.textContent = '→';
+        }
+      });
+
+      // Кнопка "Назад" в заголовке боковой панели
+      backToMenuButton.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        sidebarToggle.classList.remove('active');
+        sidebarToggle.textContent = '→';
+      });
     });
   </script>
 </body>
