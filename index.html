@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaUd — Языковая модель ИИ</title>
+  <style>
+    /* Все стили остаются без изменений */
+    :root {
+      --bg-color: #0a0a0a;
+      --element-bg: #1a1a1a;
+      --accent-color: #8b5cf6;
+      --text-color: #ffffff;
+      --overlay-color: rgba(0, 0, 0, 0.6);
+    }
+    [data-theme="light"] {
+      --bg-color: #f5f5f5;
+      --element-bg: #e5e5e5;
+      --accent-color: #7c3aed;
+      --text-color: #000000;
+      --overlay-color: rgba(0, 0, 0, 0.3);
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease;
+    }
+    #splash-logo {
+      font-size: 4rem;
+      font-weight: 800;
+      background: linear-gradient(to top, transparent 50%, var(--accent-color) 50%);
+      background-size: 100% 200%;
+      background-position: bottom;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: fillLogo 2s ease-in-out forwards;
+    }
+    @keyframes fillLogo {
+      to {
+        background-position: top;
+      }
+    }
+    #splash-subtitle {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      opacity: 0.8;
+    }
+    #background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .ball {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(20px);
+      opacity: 0.4;
+      animation: float 20s infinite ease-in-out, color 30s infinite linear;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(10px, -10px) scale(1.05); }
+      50% { transform: translate(-10px, 10px) scale(0.95); }
+      75% { transform: translate(15px, 5px) scale(1.02); }
+    }
+    @keyframes color {
+      0% { filter: hue-rotate(0deg) blur(20px); }
+      100% { filter: hue-rotate(360deg) blur(20px); }
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+    }
+    .logo {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--accent-color);
+      transition: color 0.3s ease;
+    }
+    .logo.generating {
+      color: #60a5fa;
+    }
+    .theme-toggle, .menu-toggle {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-color);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: rgba(139, 92, 246, 0.5);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      transition: transform 0.1s ease;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--overlay-color);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 998;
+    }
+    .overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .menu {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 999;
+      transition: right 0.3s ease;
+    }
+    .menu.active {
+      right: 0;
+    }
+    .menu-close {
+      align-self: flex-end;
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    .menu-back {
+      align-self: flex-start;
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .menu-button {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--accent-color);
+    }
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+    .color-picker-button {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      background-color: rgba(139, 92, 246, 0.5);
+    }
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 999;
+      transition: right 0.3s ease;
+    }
+    .settings-panel.active {
+      right: 0;
+    }
+    .settings-panel-close {
+      align-self: flex-end;
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    .settings-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .language-header, .cursor-header {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .language-option {
+      padding: 0.75rem 0;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .language-option.active {
+      position: relative;
+    }
+    .language-option.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: var(--accent-color);
+      border-radius: 2px;
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1001;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      backdrop-filter: blur(5px);
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal {
+      background-color: var(--element-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 300px;
+      text-align: center;
+      transform: scale(0.8);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .modal-button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .modal-button.yes {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    .modal-button.no {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: var(--text-color);
+    }
+    .main-interface, .chat-interface {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      padding-top: 2rem;
+    }
+    .chat-interface {
+      display: none;
+      width: 100%;
+      height: calc(100vh - 120px);
+      flex-direction: column;
+    }
+    .chat-interface.active {
+      display: flex;
+    }
+    .input-area {
+      width: 100%;
+      max-width: 600px;
+    }
+    textarea {
+      width: 100%;
+      padding: 1rem;
+      background-color: rgba(26, 26, 26, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      color: var(--text-color);
+      font-size: 1.1rem;
+      resize: none;
+      min-height: 60px;
+      backdrop-filter: blur(10px);
+    }
+    [data-theme="light"] textarea {
+      background-color: rgba(229, 229, 229, 0.6);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+    .response-area {
+      width: 100%;
+      max-width: 600px;
+      padding: 1.5rem;
+      background-color: rgba(26, 26, 26, 0.4);
+      border-radius: 12px;
+      min-height: 100px;
+      backdrop-filter: blur(10px);
+      line-height: 1.6;
+    }
+    [data-theme="light"] .response-area {
+      background-color: rgba(229, 229, 229, 0.6);
+    }
+    .chat-messages {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .message {
+      max-width: 80%;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      line-height: 1.5;
+    }
+    .user-message {
+      align-self: flex-end;
+      background-color: var(--element-bg);
+    }
+    .ai-message {
+      align-self: flex-start;
+      background-color: var(--element-bg);
+      border-left: 3px solid var(--accent-color);
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0 1rem 1rem;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 0.75rem;
+      background-color: var(--element-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: var(--text-color);
+    }
+    [data-theme="light"] .chat-input {
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+    .send-button {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .new-dialog-button {
+      background: none;
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+    button, input, textarea, .menu-item, .language-option, .color-picker-button {
+      cursor: none !important;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      z-index: 997;
+      transition: left 0.3s ease;
+    }
+    .sidebar.active {
+      left: 0;
+    }
+    .sidebar-header {
+      background-color: #8A2BE2;
+      color: white;
+      padding: 0.75rem;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-chat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+    .sidebar-chat-item {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background-color 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    [data-theme="dark"] .sidebar-chat-item:hover {
+      background-color: #f5f5f5;
+    }
+    [data-theme="light"] .sidebar-chat-item:hover {
+      background-color: #dcdcdc;
+    }
+    .sidebar-chat-delete {
+      background: none;
+      border: none;
+      color: #ff4d4d;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0.25rem;
+    }
+    .sidebar-toggle {
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      background-color: var(--element-bg);
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 996;
+      transition: left 0.3s ease;
+    }
+    .sidebar-toggle.active {
+      left: 280px;
+    }
+    .sidebar-toggle.hidden {
+      display: none;
+    }
+    .back-to-menu-button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+    }
+    .size-slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .size-slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .size-slider-value {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    .size-slider {
+      width: 100%;
+      height: 5px;
+      background: #ccc;
+      border-radius: 5px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .size-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+    }
+    .size-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+      border: none;
+    }
+    .size-save-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .size-save-buttons.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .size-save-button {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .size-save-button.save {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    .size-save-button.cancel {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: var(--text-color);
+    }
+    
+    /* НОВЫЕ СТИЛИ ДЛЯ КНОПОК АВТОРИЗАЦИИ */
+    .auth-button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    .login-button {
+      background-color: #8b5cf6; /* Фиолетовый цвет */
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+    
+    .register-button {
+      background-color: #808080; /* Серый цвет */
+      color: white;
+      transform: scale(0.9); /* Делаем кнопку меньше */
+    }
+    
+    .error-message {
+      color: #ff4d4d;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      display: none;
+    }
+    
+    .error-input {
+      border: 1px solid #ff4d4d !important;
+    }
+    
+    @media (max-width: 768px) {
+      .logo {
+        font-size: 2rem;
+      }
+      .menu, .settings-panel, .sidebar {
+        width: 240px;
+      }
+      .sidebar-toggle.active {
+        left: 240px;
+      }
+      textarea, .response-area, .chat-input {
+        font-size: 1rem;
+      }
+    }
+    @media (max-width: 480px) {
+      #splash-logo {
+        font-size: 2.5rem;
+      }
+      .logo {
+        font-size: 1.75rem;
+      }
+      .menu, .settings-panel, .sidebar {
+        width: 200px;
+      }
+      .sidebar-toggle.active {
+        left: 200px;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div id="splash">
+    <div id="splash-logo">MaUd</div>
+    <div id="splash-subtitle">ИИ-ассистент</div>
+  </div>
+  <div id="background"></div>
+  <div class="cursor" id="customCursor"></div>
+  <div class="overlay" id="overlay"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button class="back-to-menu-button" id="backToMenuButton">←</button>
+      <span id="yourChatsText">Ваши чаты</span>
+      <span></span>
+    </div>
+    <div class="sidebar-chat-list" id="sidebarChatList">
+      <!-- Чаты будут добавлены сюда динамически -->
+    </div>
+  </div>
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Показать/скрыть чаты">→</button>
+  <nav class="menu" id="menu">
+    <button class="menu-back" id="menuBack" aria-label="Назад">×</button>
+    <div class="menu-item">
+      <span id="accountText">Аккаунт</span>
+      <button class="menu-button" id="openAccountModal">Открыть</button>
+    </div>
+    <div class="menu-item">
+      <span id="chatModeText">Режим чата</span>
+      <button class="menu-button" id="toggleChatMode">Включить</button>
+    </div>
+    <div class="menu-item">
+      <span id="settingsText">Настройки</span>
+      <button class="menu-button" id="openSettingsFromMenu">Открыть</button>
+    </div>
+    <div class="menu-item">
+      <span id="aboutText">О нас</span>
+      <button class="menu-button" id="viewBlog">Посмотреть</button>
+    </div>
+  </nav>
+  <div class="settings-panel" id="settingsPanel">
+    <button class="menu-back" id="settingsBack" aria-label="Назад">←</button>
+    <div class="settings-content">
+      <div class="language-header">Язык</div>
+      <div class="language-option active" data-lang="ru">Русский</div>
+      <div class="language-option" data-lang="en">English</div>
+      <div class="language-option" data-lang="es">Español</div>
+      <div class="cursor-header">Круглый курсор</div>
+      <div class="menu-item">
+        <span>Цвет</span>
+        <div class="color-picker-button" id="colorPickerButton" style="background-color: rgba(139, 92, 246, 0.5);"></div>
+        <input type="color" id="colorPicker" value="#8b5cf6" style="display: none;">
+      </div>
+      <div class="size-slider-container">
+        <div class="size-slider-label">
+          <span>Размер</span>
+          <span class="size-slider-value" id="sizeSliderValue">1.0x</span>
+        </div>
+        <input type="range" min="-3" max="3" step="0.1" value="0" class="size-slider" id="sizeSlider">
+        <div class="size-save-buttons" id="sizeSaveButtons">
+          <button class="size-save-button save" id="sizeSaveButton">Сохранить</button>
+          <button class="size-save-button cancel" id="sizeCancelButton">Отмена</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div id="modalText">Сохранить изменения?</div>
+      <div class="modal-buttons">
+        <button class="modal-button yes" id="confirmYes">Да</button>
+        <button class="modal-button no" id="confirmNo">Нет</button>
+      </div>
+    </div>
+  </div>
+  <!-- Модальное окно для аккаунта -->
+  <div class="modal-overlay" id="accountModalOverlay">
+    <div class="modal">
+      <h3 id="accountModalTitle">Управление аккаунтом</h3>
+      <div class="modal-content">
+        <p id="accountStatusText">Вы не вошли в систему.</p>
+        <div class="modal-buttons">
+          <div id="googleSignInContainer"></div>
+          <button class="modal-button" id="googleLoginButton" style="display: none; background-color: #4285F4; color: white;">Войти через Google</button>
+        </div>
+        <div id="emailAuthSection" style="margin-top: 1rem;">
+          <h4 id="emailAuthTitle">Вход по Email</h4>
+          <input type="email" id="emailInput" placeholder="Email" style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; background-color: var(--element-bg); color: var(--text-color); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px;">
+          <div class="error-message" id="emailError"></div>
+          <input type="password" id="passwordInput" placeholder="Пароль" style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; background-color: var(--element-bg); color: var(--text-color); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px;">
+          <div class="error-message" id="passwordError"></div>
+          <div class="modal-buttons" style="flex-direction: column;">
+            <button class="auth-button login-button" id="emailLoginButton">Войти</button>
+            <button class="auth-button register-button" id="emailRegisterButton">Зарегистрироваться</button>
+          </div>
+        </div>
+        <div class="modal-buttons" style="margin-top: 1rem;">
+          <button class="modal-button no" id="logoutButton" style="display: none; background-color: #ea4335; color: white;">Выйти</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <header>
+      <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">☀️</button>
+      <div class="logo" id="mainLogo">MaUd</div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Открыть меню">☰</button>
+    </header>
+    <div class="main-interface" id="mainInterface">
+      <div class="input-area">
+        <textarea id="mainInput" placeholder="Спросите у ИИ..."></textarea>
+      </div>
+      <div class="response-area" id="mainResponse">Здесь появится ответ от ИИ.</div>
+      <button class="new-dialog-button" id="newDialogMain">Новый диалог</button>
+    </div>
+    <div class="chat-interface" id="chatInterface">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message ai-message">Привет! Чем могу помочь?</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" class="chat-input" id="chatInput" placeholder="Введите сообщение...">
+        <button class="send-button" id="sendButton">Отправить</button>
+      </div>
+      <button class="new-dialog-button" id="newDialogChat">Новый диалог</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Основные переменные приложения
+      const splash = document.getElementById('splash');
+      const splashSubtitle = document.getElementById('splash-subtitle');
+      const background = document.getElementById('background');
+      const customCursor = document.getElementById('customCursor');
+      const themeToggle = document.getElementById('themeToggle');
+      const menuToggle = document.getElementById('menuToggle');
+      const menuBack = document.getElementById('menuBack');
+      const settingsBack = document.getElementById('settingsBack');
+      const overlay = document.getElementById('overlay');
+      const menu = document.getElementById('menu');
+      const openSettingsFromMenu = document.getElementById('openSettingsFromMenu');
+      const settingsPanel = document.getElementById('settingsPanel');
+      const toggleChatMode = document.getElementById('toggleChatMode');
+      const mainInterface = document.getElementById('mainInterface');
+      const chatInterface = document.getElementById('chatInterface');
+      const mainInput = document.getElementById('mainInput');
+      const mainResponse = document.getElementById('mainResponse');
+      const chatInput = document.getElementById('chatInput');
+      const chatMessages = document.getElementById('chatMessages');
+      const sendButton = document.getElementById('sendButton');
+      const newDialogMain = document.getElementById('newDialogMain');
+      const newDialogChat = document.getElementById('newDialogChat');
+      const mainLogo = document.getElementById('mainLogo');
+      const viewBlog = document.getElementById('viewBlog');
+      const languageOptions = document.querySelectorAll('.language-option');
+      const colorPickerButton = document.getElementById('colorPickerButton');
+      const colorPicker = document.getElementById('colorPicker');
+      const modalOverlay = document.getElementById('modalOverlay');
+      const confirmYes = document.getElementById('confirmYes');
+      const confirmNo = document.getElementById('confirmNo');
+      const modalText = document.getElementById('modalText');
+      const sidebar = document.getElementById('sidebar');
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const sidebarChatList = document.getElementById('sidebarChatList');
+      const backToMenuButton = document.getElementById('backToMenuButton');
+      const sizeSlider = document.getElementById('sizeSlider');
+      const sizeSliderValue = document.getElementById('sizeSliderValue');
+      const sizeSaveButtons = document.getElementById('sizeSaveButtons');
+      const sizeSaveButton = document.getElementById('sizeSaveButton');
+      const sizeCancelButton = document.getElementById('sizeCancelButton');
+      
+      // Элементы для аккаунта
+      const openAccountModal = document.getElementById('openAccountModal');
+      const accountModalOverlay = document.getElementById('accountModalOverlay');
+      const googleSignInContainer = document.getElementById('googleSignInContainer');
+      const googleLoginButton = document.getElementById('googleLoginButton');
+      const logoutButton = document.getElementById('logoutButton');
+      const accountStatusText = document.getElementById('accountStatusText');
+      const accountModalTitle = document.getElementById('accountModalTitle');
+      
+      // Элементы для Email аутентификации
+      const emailInput = document.getElementById('emailInput');
+      const passwordInput = document.getElementById('passwordInput');
+      const emailLoginButton = document.getElementById('emailLoginButton');
+      const emailRegisterButton = document.getElementById('emailRegisterButton');
+      const emailAuthSection = document.getElementById('emailAuthSection');
+      const emailAuthTitle = document.getElementById('emailAuthTitle');
+      const emailError = document.getElementById('emailError');
+      const passwordError = document.getElementById('passwordError');
+
+      // Переменные состояния приложения
+      let currentLang = 'ru';
+      let selectedLang = null;
+      let isCursorEnabled = true;
+      let selectedCursorColor = 'rgba(139, 92, 246, 0.5)';
+      let cursorSize = 0;
+      let isChatMode = false;
+      let currentChatId = null;
+      let chats = {};
+
+      // Firebase переменные
+      let auth = null;
+      let db = null;
+      let initializedFirebase = false;
+
+      // Конфигурация Firebase
+      const firebaseConfig = {
+        apiKey: "AIzaSyCrwrthT6v-w_DStE2VuK_H2sDXq1yiRE8",
+        authDomain: "maud-35bd5.firebaseapp.com",
+        projectId: "maud-35bd5",
+        storageBucket: "maud-35bd5.firebasestorage.app",
+        messagingSenderId: "924575244173",
+        appId: "1:924575244173:web:5eca4b89850ccbe85327c4",
+        measurementId: "G-DV7M8BDZ8G"
+      };
+
+      // Инициализация Firebase
+      const initializeFirebase = () => {
+        try {
+          if (typeof firebase === 'undefined') {
+            console.warn('Firebase не загружен');
+            return false;
+          }
+
+          firebase.initializeApp(firebaseConfig);
+          auth = firebase.auth();
+          db = firebase.firestore();
+          initializedFirebase = true;
+
+          console.log("Firebase успешно инициализирован");
+
+          // Слушатель состояния аутентификации
+          auth.onAuthStateChanged((user) => {
+            updateAccountStatus(user);
+            if (user) {
+              loadChatsFromServer();
+              loadSettingsFromServer();
+            } else {
+              loadChatsFromStorage();
+            }
+          });
+
+          return true;
+        } catch (error) {
+          console.error('Ошибка инициализации Firebase:', error);
+          return false;
+        }
+      };
+
+      // Инициализация Google Sign-In
+      const initializeGoogleSignIn = () => {
+        try {
+          if (typeof google === 'undefined') {
+            console.warn('Google Identity Services не загружены');
+            googleLoginButton.style.display = 'inline-block';
+            return;
+          }
+
+          google.accounts.id.initialize({
+            client_id: '924575244173-cflceiqoefnpcv6ql7oas5e3av6k6a8q.apps.googleusercontent.com',
+            callback: handleCredentialResponse
+          });
+
+          if (googleSignInContainer) {
+            google.accounts.id.renderButton(
+              googleSignInContainer,
+              { theme: "outline", size: "large", width: "300", text: "signin_with" }
+            );
+          }
+        } catch (error) {
+          console.error('Ошибка инициализации Google Sign-In:', error);
+          googleLoginButton.style.display = 'inline-block';
+        }
+      };
+
+      // Обработчик Google OAuth
+      const handleCredentialResponse = (response) => {
+        if (!initializedFirebase) {
+          alert('Firebase не инициализирован');
+          return;
+        }
+
+        const credential = firebase.auth.GoogleAuthProvider.credential(response.credential);
+        auth.signInWithCredential(credential)
+          .then((result) => {
+            console.log("Успешный вход через Google:", result.user);
+          })
+          .catch((error) => {
+            console.error("Ошибка входа через Google:", error);
+            alert(`Ошибка входа: ${error.message}`);
+          });
+      };
+
+      // Обновление статуса аккаунта
+      const updateAccountStatus = (user) => {
+        if (user) {
+          const username = user.displayName || user.email || 'Пользователь';
+          accountStatusText.textContent = `Вы вошли как: ${username}`;
+          logoutButton.style.display = 'inline-block';
+        } else {
+          accountStatusText.textContent = 'Вы не вошли в систему.';
+          logoutButton.style.display = 'none';
+        }
+      };
+
+      // Загрузка чатов из localStorage
+      const loadChatsFromStorage = () => {
+        const storedChats = localStorage.getItem('maud_chats');
+        if (storedChats) {
+          try {
+            chats = JSON.parse(storedChats);
+          } catch (e) {
+            console.error("Ошибка при парсинге чатов из localStorage:", e);
+            chats = {};
+          }
+        }
+        updateChatList();
+      };
+
+      // Сохранение чатов в localStorage
+      const saveChatsToStorage = () => {
+        localStorage.setItem('maud_chats', JSON.stringify(chats));
+        if (initializedFirebase && auth.currentUser) {
+          saveChatsToServer();
+        }
+      };
+
+      // Загрузка чатов с сервера
+      const loadChatsFromServer = async () => {
+        if (!initializedFirebase || !auth.currentUser) return;
+
+        try {
+          const userChatsRef = db.collection('users').doc(auth.currentUser.uid).collection('chats');
+          const snapshot = await userChatsRef.get();
+          const serverChats = {};
+          
+          snapshot.forEach(doc => {
+            serverChats[doc.id] = doc.data();
+          });
+
+          if (Object.keys(serverChats).length > 0) {
+            chats = serverChats;
+            localStorage.setItem('maud_chats', JSON.stringify(chats));
+            updateChatList();
+          }
+        } catch (error) {
+          console.error('Ошибка загрузки чатов с сервера:', error);
+        }
+      };
+
+      // Сохранение чатов на сервере
+      const saveChatsToServer = async () => {
+        if (!initializedFirebase || !auth.currentUser) return;
+
+        try {
+          for (const chatId in chats) {
+            await db.collection('users').doc(auth.currentUser.uid).collection('chats').doc(chatId).set(chats[chatId]);
+          }
+          console.log("Чаты успешно сохранены на сервере");
+        } catch (error) {
+          console.error('Ошибка сохранения чатов на сервере:', error);
+        }
+      };
+
+      // Переводы
+      const translations = {
+        ru: {
+          subtitle: ['ИИ-ассистент', 'Помощник', 'Развитие', 'Искусственный интеллект'],
+          inputPlaceholder: 'Спросите у ИИ...',
+          responseAreaText: 'Здесь появится ответ от ИИ.',
+          newDialogButton: 'Новый диалог',
+          chatWelcome: 'Привет! Чем могу помочь?',
+          menuChatEnable: 'Включить',
+          menuChatDisable: 'Выключить',
+          menuSettings: 'Настройки',
+          menuOpenSettings: 'Открыть',
+          menuChatMode: 'Режим чата',
+          settingsLanguage: 'Язык',
+          settingsCursor: 'Круглый курсор',
+          settingsCursorColor: 'Цвет',
+          settingsCursorSize: 'Размер',
+          modalText: 'Сохранить изменения?',
+          modalYes: 'Да',
+          modalNo: 'Нет',
+          aiResponses: [
+            'Это пример ответа от языковой модели MaUd.',
+            'Я — искусственный интеллект, созданный для помощи вам.',
+            'Спросите что-нибудь ещё — я всегда готов помочь!',
+            'MaUd использует передовые технологии обработки естественного языка.',
+            'Ваш запрос обработан успешно. Чем ещё могу помочь?'
+          ],
+          yourChats: 'Ваши чаты',
+          chatMode: 'Режим чата',
+          settings: 'Настройки',
+          about: 'О нас',
+          save: 'Сохранить',
+          cancel: 'Отмена',
+          account: 'Аккаунт',
+          menuOpenAccount: 'Открыть',
+          accountModalTitle: 'Управление аккаунтом',
+          loggedInAs: 'Вы вошли как: ',
+          notLoggedIn: 'Вы не вошли в систему.',
+          loginWithGoogle: 'Войти через Google',
+          logout: 'Выйти',
+          emailAuthTitle: 'Вход по Email',
+          emailPlaceholder: 'Email',
+          passwordPlaceholder: 'Пароль',
+          loginButton: 'Войти',
+          registerButton: 'Зарегистрироваться',
+          authError: 'Не верный логин или пароль'
+        },
+        en: {
+          subtitle: ['AI Assistant', 'Helper', 'Development', 'Artificial Intelligence'],
+          inputPlaceholder: 'Ask the AI...',
+          responseAreaText: 'The AI response will appear here.',
+          newDialogButton: 'New Dialog',
+          chatWelcome: 'Hi! How can I help?',
+          menuChatEnable: 'Enable',
+          menuChatDisable: 'Disable',
+          menuSettings: 'Settings',
+          menuOpenSettings: 'Open',
+          menuChatMode: 'Chat Mode',
+          settingsLanguage: 'Language',
+          settingsCursor: 'Round Cursor',
+          settingsCursorColor: 'Color',
+          settingsCursorSize: 'Size',
+          modalText: 'Save changes?',
+          modalYes: 'Yes',
+          modalNo: 'No',
+          aiResponses: [
+            'This is an example response from the MaUd AI model.',
+            'I am an artificial intelligence created to help you.',
+            'Ask something else — I am always ready to help!',
+            'MaUd uses advanced natural language processing technologies.',
+            'Your request has been processed successfully. How else can I help?'
+          ],
+          yourChats: 'Your Chats',
+          chatMode: 'Chat Mode',
+          settings: 'Settings',
+          about: 'About',
+          save: 'Save',
+          cancel: 'Cancel',
+          account: 'Account',
+          menuOpenAccount: 'Open',
+          accountModalTitle: 'Account Management',
+          loggedInAs: 'Logged in as: ',
+          notLoggedIn: 'Not logged in.',
+          loginWithGoogle: 'Sign in with Google',
+          logout: 'Log out',
+          emailAuthTitle: 'Email Sign-In',
+          emailPlaceholder: 'Email',
+          passwordPlaceholder: 'Password',
+          loginButton: 'Login',
+          registerButton: 'Register',
+          authError: 'Incorrect login or password'
+        },
+        es: {
+          subtitle: ['Asistente de IA', 'Ayudante', 'Desarrollo', 'Inteligencia Artificial'],
+          inputPlaceholder: 'Pregúntale a la IA...',
+          responseAreaText: 'Aquí aparecerá la respuesta de la IA.',
+          newDialogButton: 'Nuevo Diálogo',
+          chatWelcome: '¡Hola! ¿En qué puedo ayudarte?',
+          menuChatEnable: 'Habilitar',
+          menuChatDisable: 'Deshabilitar',
+          menuSettings: 'Configuración',
+          menuOpenSettings: 'Abrir',
+          menuChatMode: 'Modo Chat',
+          settingsLanguage: 'Idioma',
+          settingsCursor: 'Cursor Redondo',
+          settingsCursorColor: 'Color',
+          settingsCursorSize: 'Tamaño',
+          modalText: '¿Guardar cambios?',
+          modalYes: 'Sí',
+          modalNo: 'No',
+          aiResponses: [
+            'Esta es una respuesta de ejemplo del modelo de IA MaUd.',
+            'Soy una inteligencia artificial creada para ayudarte.',
+            '¡Pregunta algo más — siempre estoy listo para ayudar!',
+            'MaUd utiliza tecnologías avanzadas de procesamiento de lenguaje natural.',
+            'Tu solicitud ha sido procesada con éxito. ¿En qué más puedo ayudarte?'
+          ],
+          yourChats: 'Tus Chats',
+          chatMode: 'Modo Chat',
+          settings: 'Configuración',
+          about: 'Acerca de',
+          save: 'Guardar',
+          cancel: 'Cancelar',
+          account: 'Cuenta',
+          menuOpenAccount: 'Abrir',
+          accountModalTitle: 'Gestión de Cuenta',
+          loggedInAs: 'Sesión iniciada como: ',
+          notLoggedIn: 'No ha iniciado sesión.',
+          loginWithGoogle: 'Iniciar sesión con Google',
+          logout: 'Cerrar sesión',
+          emailAuthTitle: 'Inicio de sesión por Email',
+          emailPlaceholder: 'Email',
+          passwordPlaceholder: 'Contraseña',
+          loginButton: 'Iniciar sesión',
+          registerButton: 'Registrarse',
+          authError: 'Usuario o contraseña incorrectos'
+        }
+      };
+
+      // Обновление текстов интерфейса
+      const updateTexts = (lang) => {
+        const t = translations[lang];
+        if (!t) return;
+
+        // Обновление бегущей строки
+        const subtitles = t.subtitle;
+        let subtitleIndex = 0;
+        const updateSubtitle = () => {
+            splashSubtitle.textContent = subtitles[subtitleIndex];
+            subtitleIndex = (subtitleIndex + 1) % subtitles.length;
+        };
+        updateSubtitle();
+        
+        if (window.subtitleInterval) clearInterval(window.subtitleInterval);
+        window.subtitleInterval = setInterval(updateSubtitle, 1000);
+
+        // Обновление остальных текстов
+        mainInput.placeholder = t.inputPlaceholder;
+        chatInput.placeholder = t.inputPlaceholder;
+        mainResponse.textContent = t.responseAreaText;
+        newDialogMain.textContent = t.newDialogButton;
+        newDialogChat.textContent = t.newDialogButton;
+        
+        const firstMessage = chatMessages.querySelector('.ai-message');
+        if (firstMessage) firstMessage.textContent = t.chatWelcome;
+        
+        toggleChatMode.textContent = isChatMode ? t.menuChatDisable : t.menuChatEnable;
+
+        // Обновление пунктов меню
+        document.querySelectorAll('.menu-item').forEach((item, index) => {
+          const spans = item.querySelectorAll('span');
+          if (spans.length > 0) {
+            if (index === 0) spans[0].textContent = t.account;
+            if (index === 1) spans[0].textContent = t.menuChatMode;
+            if (index === 2) spans[0].textContent = t.settings;
+            if (index === 3) spans[0].textContent = t.about;
+          }
+          const buttons = item.querySelectorAll('button');
+          if (buttons.length > 0) {
+            if (index === 0) buttons[0].textContent = t.menuOpenAccount;
+            if (index === 1) buttons[0].textContent = isChatMode ? t.menuChatDisable : t.menuChatEnable;
+            if (index === 2) buttons[0].textContent = t.menuOpenSettings;
+            if (index === 3) buttons[0].textContent = t.menuBlogButton;
+          }
+        });
+
+        // Обновление остальных элементов
+        yourChatsText.textContent = t.yourChats;
+        modalText.textContent = t.modalText;
+        confirmYes.textContent = t.modalYes;
+        confirmNo.textContent = t.modalNo;
+        accountModalTitle.textContent = t.accountModalTitle;
+        
+        if (auth && auth.currentUser) {
+          const username = auth.currentUser.displayName || auth.currentUser.email || 'Пользователь';
+          accountStatusText.textContent = `${t.loggedInAs} ${username}`;
+        } else {
+          accountStatusText.textContent = t.notLoggedIn;
+        }
+        
+        if (googleLoginButton) googleLoginButton.textContent = t.loginWithGoogle;
+        if (logoutButton) logoutButton.textContent = t.logout;
+        if (emailAuthTitle) emailAuthTitle.textContent = t.emailAuthTitle;
+        if (emailInput) emailInput.placeholder = t.emailPlaceholder;
+        if (passwordInput) passwordInput.placeholder = t.passwordPlaceholder;
+        if (emailLoginButton) emailLoginButton.textContent = t.loginButton;
+        if (emailRegisterButton) emailRegisterButton.textContent = t.registerButton;
+      };
+
+      // Анимация загрузки
+      const subtitles = translations[currentLang].subtitle;
+      let subtitleIndex = 0;
+      const updateSubtitle = () => {
+        splashSubtitle.textContent = subtitles[subtitleIndex];
+        subtitleIndex = (subtitleIndex + 1) % subtitles.length;
+      };
+      
+      const subtitleInterval = setInterval(updateSubtitle, 1000);
+      
+      setTimeout(() => {
+        clearInterval(subtitleInterval);
+        splash.style.opacity = '0';
+        setTimeout(() => {
+          splash.style.display = 'none';
+        }, 500);
+      }, 3000);
+
+      // Создание анимированных шаров на фоне
+      const createBalls = () => {
+        const ballCount = 17;
+        for (let i = 0; i < ballCount; i++) {
+          const ballElement = document.createElement('div');
+          ballElement.classList.add('ball');
+          ballElement.style.width = `${60 + Math.random() * 100}px`;
+          ballElement.style.height = ballElement.style.width;
+          ballElement.style.left = `${Math.random() * 90}%`;
+          ballElement.style.top = `${Math.random() * 90}%`;
+          ballElement.style.background = `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`;
+          ballElement.style.animation = `float ${20 + Math.random() * 10}s infinite ease-in-out, color ${30 + Math.random() * 20}s infinite linear`;
+          background.appendChild(ballElement);
+        }
+      };
+
+      createBalls();
+
+      // Остальные функции приложения
+      const updateChatModeButton = () => {
+        const t = translations[currentLang];
+        toggleChatMode.textContent = isChatMode ? t.menuChatDisable : t.menuChatEnable;
+      };
+
+      const switchToChatMode = () => {
+        isChatMode = true;
+        mainInterface.style.display = 'none';
+        chatInterface.classList.add('active');
+        sidebar.classList.add('active');
+        sidebarToggle.classList.add('active');
+        sidebarToggle.classList.remove('hidden');
+        sidebarToggle.textContent = '←';
+        updateChatModeButton();
+        if (!currentChatId) {
+            startNewChat();
+        }
+      };
+
+      const switchToMainMode = () => {
+        isChatMode = false;
+        chatInterface.classList.remove('active');
+        mainInterface.style.display = 'flex';
+        sidebar.classList.remove('active');
+        sidebarToggle.classList.remove('active');
+        sidebarToggle.classList.add('hidden');
+        sidebarToggle.textContent = '→';
+        updateChatModeButton();
+        currentChatId = null;
+      };
+
+      // Логика курсора
+      const updateCursor = () => {
+        if (isCursorEnabled) {
+          customCursor.style.display = 'block';
+          customCursor.style.backgroundColor = selectedCursorColor;
+          const baseSize = 20;
+          const scaleFactor = Math.pow(1.5, cursorSize);
+          const newSize = baseSize * scaleFactor;
+          customCursor.style.width = `${newSize}px`;
+          customCursor.style.height = `${newSize}px`;
+          document.body.style.cursor = 'none';
+        } else {
+          customCursor.style.display = 'none';
+          document.body.style.cursor = 'default';
+        }
+      };
+
+      document.addEventListener('mousemove', (e) => {
+        if (isCursorEnabled) {
+          customCursor.style.left = e.clientX + 'px';
+          customCursor.style.top = e.clientY + 'px';
+        }
+      });
+
+      document.addEventListener('mousedown', () => {
+        if (isCursorEnabled) {
+          customCursor.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isCursorEnabled) {
+          customCursor.style.transform = 'translate(-50%, -50%) scale(1)';
+        }
+      });
+
+      // Обработчики событий
+      themeToggle.addEventListener('click', () => {
+        const currentTheme = document.body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', newTheme);
+        themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      });
+
+      const openMenu = () => {
+        menu.classList.add('active');
+        overlay.classList.add('active');
+      };
+
+      const closeMenu = () => {
+        menu.classList.remove('active');
+        overlay.classList.remove('active');
+      };
+
+      const openSettingsPanel = () => {
+        settingsPanel.classList.add('active');
+        overlay.classList.add('active');
+        menu.classList.remove('active');
+      };
+
+      const closeSettingsPanel = () => {
+        settingsPanel.classList.remove('active');
+        overlay.classList.remove('active');
+      };
+
+      menuToggle.addEventListener('click', openMenu);
+      menuBack.addEventListener('click', closeMenu);
+      settingsBack.addEventListener('click', () => {
+        closeSettingsPanel();
+        openMenu();
+      });
+      overlay.addEventListener('click', () => {
+        closeMenu();
+        closeSettingsPanel();
+      });
+
+      openSettingsFromMenu.addEventListener('click', () => {
+        closeMenu();
+        openSettingsPanel();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeMenu();
+          closeSettingsPanel();
+          if (modalOverlay.classList.contains('active')) {
+            closeModal();
+          }
+          if (accountModalOverlay.classList.contains('active')) {
+            accountModalOverlay.classList.remove('active');
+          }
+        }
+      });
+
+      toggleChatMode.addEventListener('click', () => {
+        closeMenu();
+        if (isChatMode) {
+          switchToMainMode();
+        } else {
+          switchToChatMode();
+        }
+      });
+
+      viewBlog.addEventListener('click', () => {
+        window.open('https://maud-site.blogspot.com/', '_blank');
+      });
+
+      languageOptions.forEach(option => {
+        option.addEventListener('click', () => {
+          const clickedLang = option.getAttribute('data-lang');
+          if (clickedLang !== currentLang) {
+            selectedLang = clickedLang;
+            document.querySelectorAll('.language-option').forEach(opt => {
+              opt.classList.remove('active');
+            });
+            option.classList.add('active');
+            openModal();
+          }
+        });
+      });
+
+      colorPickerButton.addEventListener('click', () => {
+        colorPicker.click();
+      });
+
+      colorPicker.addEventListener('change', (e) => {
+        const newColor = e.target.value;
+        selectedCursorColor = newColor;
+        colorPickerButton.style.backgroundColor = newColor;
+        openModal();
+      });
+
+      sizeSlider.addEventListener('input', () => {
+        cursorSize = parseFloat(sizeSlider.value);
+        const scaleFactor = Math.pow(1.5, cursorSize);
+        sizeSliderValue.textContent = `${scaleFactor.toFixed(1)}x`;
+        updateCursor();
+        sizeSaveButtons.classList.add('visible');
+      });
+
+      sizeSaveButton.addEventListener('click', () => {
+        sizeSaveButtons.classList.remove('visible');
+      });
+
+      sizeCancelButton.addEventListener('click', () => {
+        sizeSlider.value = cursorSize;
+        const scaleFactor = Math.pow(1.5, cursorSize);
+        sizeSliderValue.textContent = `${scaleFactor.toFixed(1)}x`;
+        updateCursor();
+        sizeSaveButtons.classList.remove('visible');
+      });
+
+      const openModal = () => {
+        const t = translations[currentLang];
+        modalText.textContent = t.modalText;
+        confirmYes.textContent = t.modalYes;
+        confirmNo.textContent = t.modalNo;
+        modalOverlay.classList.add('active');
+      };
+
+      const closeModal = () => {
+        modalOverlay.classList.remove('active');
+        if (selectedLang) {
+          document.querySelectorAll('.language-option').forEach(opt => {
+            if (opt.getAttribute('data-lang') === currentLang) {
+              opt.classList.add('active');
+            } else if (opt.getAttribute('data-lang') === selectedLang) {
+              opt.classList.remove('active');
+            }
+          });
+          selectedLang = null;
+        }
+        colorPickerButton.style.backgroundColor = selectedCursorColor;
+      };
+
+      confirmYes.addEventListener('click', () => {
+        if (selectedLang) {
+          currentLang = selectedLang;
+          updateTexts(currentLang);
+          selectedLang = null;
+        }
+        updateCursor();
+        closeModal();
+      });
+
+      confirmNo.addEventListener('click', closeModal);
+
+      // Логика чатов
+      const generateChatTitle = (firstUserMessage) => {
+        if (firstUserMessage) {
+          return firstUserMessage.substring(0, 20) + (firstUserMessage.length > 20 ? '...' : '');
+        } else {
+          const now = new Date();
+          return `Чат от ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        }
+      };
+
+      const saveCurrentChat = () => {
+        if (currentChatId && chats[currentChatId] && chats[currentChatId].messages.length > 0) {
+          if (!chats[currentChatId].title || chats[currentChatId].title.startsWith('Чат от')) {
+            const firstUserMsg = chats[currentChatId].messages.find(m => m.isUser)?.text;
+            chats[currentChatId].title = generateChatTitle(firstUserMsg);
+          }
+          chats[currentChatId].timestamp = Date.now();
+          saveChatsToStorage();
+          updateChatList();
+        }
+      };
+
+      const startNewChat = () => {
+        saveCurrentChat();
+        const newChatId = 'chat_' + Date.now();
+        const welcomeMessage = translations[currentLang].chatWelcome;
+        chats[newChatId] = {
+          id: newChatId,
+          title: '',
+          messages: [{ text: welcomeMessage, isUser: false }],
+          timestamp: Date.now()
+        };
+        currentChatId = newChatId;
+        loadChatMessages(newChatId);
+      };
+
+      const loadChatMessages = (chatId) => {
+        if (chats[chatId]) {
+          currentChatId = chatId;
+          chatMessages.innerHTML = '';
+          chats[chatId].messages.forEach(msg => {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            messageElement.classList.add(msg.isUser ? 'user-message' : 'ai-message');
+            messageElement.textContent = msg.text;
+            chatMessages.appendChild(messageElement);
+          });
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      };
+
+      const deleteChat = (chatId) => {
+        if (chats[chatId]) {
+          delete chats[chatId];
+          saveChatsToStorage();
+          updateChatList();
+          if (currentChatId === chatId) {
+            startNewChat();
+          }
+        }
+      };
+
+      const updateChatList = () => {
+        sidebarChatList.innerHTML = '';
+        const chatArray = Object.values(chats).sort((a, b) => b.timestamp - a.timestamp);
+        chatArray.forEach(chat => {
+          const item = document.createElement('div');
+          item.className = 'sidebar-chat-item';
+          item.dataset.chatId = chat.id;
+          const titleSpan = document.createElement('span');
+          titleSpan.textContent = chat.title || generateChatTitle(chat.messages.find(m => m.isUser)?.text);
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'sidebar-chat-delete';
+          deleteBtn.textContent = '×';
+          deleteBtn.dataset.chatId = chat.id;
+          item.appendChild(titleSpan);
+          item.appendChild(deleteBtn);
+          sidebarChatList.appendChild(item);
+        });
+
+        document.querySelectorAll('.sidebar-chat-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('sidebar-chat-delete')) {
+              const chatId = item.dataset.chatId;
+              if (chatId) {
+                saveCurrentChat();
+                currentChatId = chatId;
+                loadChatMessages(chatId);
+                sidebar.classList.remove('active');
+                sidebarToggle.classList.remove('active');
+                sidebarToggle.textContent = '→';
+              }
+            }
+          });
+        });
+
+        document.querySelectorAll('.sidebar-chat-delete').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const chatId = e.target.dataset.chatId;
+            if (chatId) {
+              deleteChat(chatId);
+            }
+          });
+        });
+      };
+
+      // Имитация ответа ИИ
+      const simulateAIResponse = (input, isChat = false) => {
+        mainLogo.classList.add('generating');
+        setTimeout(() => {
+          const responses = translations[currentLang].aiResponses;
+          const response = responses[Math.floor(Math.random() * responses.length)];
+          if (isChat) {
+            const aiMessage = document.createElement('div');
+            aiMessage.classList.add('message', 'ai-message');
+            aiMessage.textContent = response;
+            chatMessages.appendChild(aiMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            if (currentChatId && chats[currentChatId]) {
+              chats[currentChatId].messages.push({ text: response, isUser: false });
+              chats[currentChatId].timestamp = Date.now();
+              saveChatsToStorage();
+              updateChatList();
+            }
+          } else {
+            mainResponse.textContent = response;
+          }
+          mainLogo.classList.remove('generating');
+        }, 800);
+      };
+
+      mainInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const text = mainInput.value.trim();
+          if (text) {
+            simulateAIResponse(text, false);
+            mainInput.value = '';
+          }
+        }
+      });
+
+      sendButton.addEventListener('click', () => {
+        const text = chatInput.value.trim();
+        if (text) {
+          if (currentChatId && chats[currentChatId]) {
+            chats[currentChatId].messages.push({ text: text, isUser: true });
+            chats[currentChatId].timestamp = Date.now();
+          }
+          const userMessage = document.createElement('div');
+          userMessage.classList.add('message', 'user-message');
+          userMessage.textContent = text;
+          chatMessages.appendChild(userMessage);
+          chatInput.value = '';
+          simulateAIResponse(text, true);
+        }
+      });
+
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          sendButton.click();
+        }
+      });
+
+      newDialogMain.addEventListener('click', () => {
+        mainInput.value = '';
+        mainResponse.textContent = translations[currentLang].responseAreaText;
+      });
+
+      newDialogChat.addEventListener('click', () => {
+        startNewChat();
+      });
+
+      // Функция для показа ошибки авторизации
+      const showAuthError = () => {
+        const t = translations[currentLang];
+        emailError.textContent = t.authError;
+        passwordError.textContent = t.authError;
+        emailError.style.display = 'block';
+        passwordError.style.display = 'block';
+        emailInput.classList.add('error-input');
+        passwordInput.classList.add('error-input');
+        
+        // Убираем ошибку через 3 секунды
+        setTimeout(() => {
+          emailError.style.display = 'none';
+          passwordError.style.display = 'none';
+          emailInput.classList.remove('error-input');
+          passwordInput.classList.remove('error-input');
+        }, 3000);
+      };
+
+      // Обработчики для аккаунта
+      openAccountModal.addEventListener('click', () => {
+        closeMenu();
+        accountModalOverlay.classList.add('active');
+        updateAccountStatus(auth ? auth.currentUser : null);
+      });
+
+      accountModalOverlay.addEventListener('click', (e) => {
+        if (e.target === accountModalOverlay) {
+          accountModalOverlay.classList.remove('active');
+        }
+      });
+
+      googleLoginButton.addEventListener('click', () => {
+        if (initializedFirebase) {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          auth.signInWithPopup(provider)
+            .then((result) => {
+              console.log("Успешный вход через Google");
+            })
+            .catch((error) => {
+              console.error("Ошибка входа через Google:", error);
+              alert(`Ошибка входа: ${error.message}`);
+            });
+        } else {
+          alert("Firebase не инициализирован");
+        }
+      });
+
+      // Аутентификация по Email
+      emailLoginButton.addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          alert("Пожалуйста, введите email и пароль.");
+          return;
+        }
+
+        try {
+          await auth.signInWithEmailAndPassword(email, password);
+          console.log("Успешный вход через Email.");
+          emailInput.value = '';
+          passwordInput.value = '';
+        } catch (error) {
+          console.error("Ошибка входа через Email:", error);
+          showAuthError();
+        }
+      });
+
+      emailRegisterButton.addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          alert("Пожалуйста, введите email и пароль.");
+          return;
+        }
+
+        try {
+          await auth.createUserWithEmailAndPassword(email, password);
+          console.log("Успешная регистрация через Email.");
+          emailInput.value = '';
+          passwordInput.value = '';
+        } catch (error) {
+          console.error("Ошибка регистрации через Email:", error);
+          alert(`Ошибка регистрации: ${error.message}`);
+        }
+      });
+
+      logoutButton.addEventListener('click', async () => {
+        if (initializedFirebase) {
+          try {
+            await auth.signOut();
+            console.log("Пользователь вышел");
+          } catch (error) {
+            console.error("Ошибка выхода:", error);
+            alert(`Ошибка выхода: ${error.message}`);
+          }
+        }
+      });
+
+      // Обработчики сайдбара
+      sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        sidebarToggle.classList.toggle('active');
+        sidebarToggle.textContent = sidebar.classList.contains('active') ? '←' : '→';
+      });
+
+      backToMenuButton.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        sidebarToggle.classList.remove('active');
+        sidebarToggle.textContent = '→';
+      });
+
+      // Инициализация приложения
+      updateCursor();
+      updateChatModeButton();
+      updateTexts(currentLang);
+      loadChatsFromStorage();
+
+      if (!isChatMode) {
+        sidebarToggle.classList.add('hidden');
+      }
+
+      // Инициализация Firebase после загрузки страницы
+      setTimeout(() => {
+        initializeFirebase();
+        initializeGoogleSignIn();
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
