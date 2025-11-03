@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaUd — Языковая модель ИИ</title>
+  <style>
+    :root {
+      --bg-color: #0a0a0a;
+      --element-bg: #1a1a1a;
+      --accent-color: #8b5cf6;
+      --text-color: #ffffff;
+      --overlay-color: rgba(0, 0, 0, 0.6);
+    }
+    [data-theme="light"] {
+      --bg-color: #f5f5f5;
+      --element-bg: #e5e5e5;
+      --accent-color: #7c3aed;
+      --text-color: #000000;
+      --overlay-color: rgba(0, 0, 0, 0.3);
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease;
+    }
+    #splash.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #splash-logo {
+      font-size: 4rem;
+      font-weight: 800;
+      background: linear-gradient(to top, transparent 50%, var(--accent-color) 50%);
+      background-size: 100% 200%;
+      background-position: bottom;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: fillLogo 2s ease-in-out forwards;
+    }
+    @keyframes fillLogo {
+      to {
+        background-position: top;
+      }
+    }
+    #splash-subtitle {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      opacity: 0.8;
+    }
+    #background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .ball {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(20px);
+      opacity: 0.4;
+      animation: float 20s infinite ease-in-out, color 30s infinite linear;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(10px, -10px) scale(1.05); }
+      50% { transform: translate(-10px, 10px) scale(0.95); }
+      75% { transform: translate(15px, 5px) scale(1.02); }
+    }
+    @keyframes color {
+      0% { filter: hue-rotate(0deg) blur(20px); }
+      100% { filter: hue-rotate(360deg) blur(20px); }
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+    }
+    .logo {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--accent-color);
+      transition: color 0.3s ease;
+    }
+    .logo.generating {
+      color: #60a5fa;
+    }
+    .theme-toggle, .menu-toggle {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-color);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: rgba(139, 92, 246, 0.5);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+      transition: transform 0.1s ease;
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--overlay-color);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 998;
+    }
+    .overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .menu {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 999;
+      transition: right 0.3s ease;
+    }
+    .menu.active {
+      right: 0;
+    }
+    .menu-back {
+      align-self: flex-start;
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .menu-button {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 999;
+      transition: right 0.3s ease;
+    }
+    .settings-panel.active {
+      right: 0;
+    }
+    .settings-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .language-header, .cursor-header {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .language-option {
+      padding: 0.75rem 0;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .language-option.active {
+      position: relative;
+    }
+    .language-option.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: var(--accent-color);
+      border-radius: 2px;
+    }
+    .color-picker-button {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      background-color: rgba(139, 92, 246, 0.5);
+    }
+    .size-slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .size-slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .size-slider-value {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    .size-slider {
+      width: 100%;
+      height: 5px;
+      background: #ccc;
+      border-radius: 5px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .size-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+    }
+    .size-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+      border: none;
+    }
+    .main-interface, .chat-interface {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      padding-top: 2rem;
+    }
+    .chat-interface {
+      display: none;
+      width: 100%;
+      height: calc(100vh - 120px);
+      flex-direction: column;
+    }
+    .chat-interface.active {
+      display: flex;
+    }
+    .input-area {
+      width: 100%;
+      max-width: 600px;
+    }
+    textarea {
+      width: 100%;
+      padding: 1rem;
+      background-color: rgba(26, 26, 26, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      color: var(--text-color);
+      font-size: 1.1rem;
+      resize: none;
+      min-height: 60px;
+      backdrop-filter: blur(10px);
+    }
+    [data-theme="light"] textarea {
+      background-color: rgba(229, 229, 229, 0.6);
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+    .response-area {
+      width: 100%;
+      max-width: 600px;
+      padding: 1.5rem;
+      background-color: rgba(26, 26, 26, 0.4);
+      border-radius: 12px;
+      min-height: 100px;
+      backdrop-filter: blur(10px);
+      line-height: 1.6;
+    }
+    [data-theme="light"] .response-area {
+      background-color: rgba(229, 229, 229, 0.6);
+    }
+    .chat-messages {
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .message {
+      max-width: 80%;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      line-height: 1.5;
+    }
+    .user-message {
+      align-self: flex-end;
+      background-color: var(--element-bg);
+    }
+    .ai-message {
+      align-self: flex-start;
+      background-color: var(--element-bg);
+      border-left: 3px solid var(--accent-color);
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0 1rem 1rem;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 0.75rem;
+      background-color: var(--element-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: var(--text-color);
+    }
+    [data-theme="light"] .chat-input {
+      border-color: rgba(0, 0, 0, 0.1);
+    }
+    .send-button {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .new-dialog-button {
+      background: none;
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -300px;
+      width: 280px;
+      height: 100%;
+      background-color: var(--element-bg);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      z-index: 997;
+      transition: left 0.3s ease;
+    }
+    .sidebar.active {
+      left: 0;
+    }
+    .sidebar-header {
+      background-color: #8A2BE2;
+      color: white;
+      padding: 0.75rem;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-chat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+    .sidebar-chat-item {
+      padding: 0.75rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background-color 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    [data-theme="dark"] .sidebar-chat-item:hover {
+      background-color: #f5f5f5;
+    }
+    [data-theme="light"] .sidebar-chat-item:hover {
+      background-color: #dcdcdc;
+    }
+    .sidebar-chat-delete {
+      background: none;
+      border: none;
+      color: #ff4d4d;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0.25rem;
+    }
+    .sidebar-toggle {
+      position: fixed;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      background-color: var(--element-bg);
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 996;
+      transition: left 0.3s ease;
+    }
+    .sidebar-toggle.active {
+      left: 280px;
+    }
+    .sidebar-toggle.hidden {
+      display: none;
+    }
+    .back-to-menu-button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+    }
+    .auth-button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    .login-button {
+      background-color: #8b5cf6;
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+    .register-button {
+      background-color: #808080;
+      color: white;
+      transform: scale(0.9);
+    }
+    .error-message {
+      color: #ff4d4d;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      display: none;
+    }
+    .error-input {
+      border: 1px solid #ff4d4d !important;
+    }
+    .typing-indicator {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: var(--element-bg);
+      border-radius: 12px;
+      border-left: 3px solid var(--accent-color);
+    }
+    .typing-dots {
+      display: inline-block;
+    }
+    .typing-dots span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-color);
+      margin: 0 2px;
+      animation: typing 1.4s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes typing {
+      0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    .api-key-input {
+      width: 100%;
+      padding: 0.5rem;
+      background-color: var(--element-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: var(--text-color);
+      margin-top: 0.5rem;
+    }
+    .api-key-save {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      font-weight: 600;
+    }
+    .api-key-status {
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+      padding: 0.25rem;
+      border-radius: 4px;
+    }
+    .api-key-status.valid {
+      background-color: rgba(0, 255, 0, 0.1);
+      color: #00ff00;
+    }
+    .api-key-status.invalid {
+      background-color: rgba(255, 0, 0, 0.1);
+      color: #ff4d4d;
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div id="splash">
+    <div id="splash-logo">MaUd</div>
+    <div id="splash-subtitle">ИИ-ассистент</div>
+  </div>
+  <div id="background"></div>
+  <div class="cursor" id="customCursor"></div>
+  <div class="overlay" id="overlay"></div>
+  
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button class="back-to-menu-button" id="backToMenuButton">←</button>
+      <span>Ваши чаты</span>
+      <span></span>
+    </div>
+    <div class="sidebar-chat-list" id="sidebarChatList"></div>
+  </div>
+  
+  <button class="sidebar-toggle" id="sidebarToggle">→</button>
+  
+  <nav class="menu" id="menu">
+    <button class="menu-back" id="menuBack">×</button>
+    <div class="menu-item">
+      <span>Аккаунт</span>
+      <button class="menu-button" id="openAccountModal">Открыть</button>
+    </div>
+    <div class="menu-item">
+      <span>Режим чата</span>
+      <button class="menu-button" id="toggleChatMode">Включить</button>
+    </div>
+    <div class="menu-item">
+      <span>Настройки</span>
+      <button class="menu-button" id="openSettingsFromMenu">Открыть</button>
+    </div>
+    <div class="menu-item">
+      <span>О нас</span>
+      <button class="menu-button" id="viewBlog">Посмотреть</button>
+    </div>
+    <div class="menu-item">
+      <span>API ключ</span>
+      <button class="menu-button" id="openApiKeyModal">Настроить</button>
+    </div>
+  </nav>
+  
+  <div class="settings-panel" id="settingsPanel">
+    <button class="menu-back" id="settingsBack">←</button>
+    <div class="settings-content">
+      <div class="language-header">Язык</div>
+      <div class="language-option active" data-lang="ru">Русский</div>
+      <div class="language-option" data-lang="en">English</div>
+      <div class="language-option" data-lang="es">Español</div>
+      <div class="cursor-header">Круглый курсор</div>
+      <div class="menu-item">
+        <span>Цвет</span>
+        <div class="color-picker-button" id="colorPickerButton"></div>
+        <input type="color" id="colorPicker" style="display: none;">
+      </div>
+      <div class="size-slider-container">
+        <div class="size-slider-label">
+          <span>Размер</span>
+          <span class="size-slider-value" id="sizeSliderValue">1.0x</span>
+        </div>
+        <input type="range" min="-3" max="3" step="0.1" value="0" class="size-slider" id="sizeSlider">
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно для настройки API ключа -->
+  <div class="overlay" id="apiKeyOverlay" style="display: none;">
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: var(--element-bg); padding: 2rem; border-radius: 12px; width: 90%; max-width: 500px; z-index: 1001;">
+      <h3 style="margin-bottom: 1rem;">Настройка API ключа</h3>
+      <p style="margin-bottom: 1rem; font-size: 0.9rem; opacity: 0.8;">
+        Для работы с ИИ необходимо указать ваш API ключ. Вы можете получить его на платформе OpenAI.
+      </p>
+      <input type="password" class="api-key-input" id="apiKeyInput" placeholder="Введите ваш API ключ">
+      <div class="api-key-status" id="apiKeyStatus"></div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+        <button class="api-key-save" id="saveApiKey">Сохранить</button>
+        <button class="new-dialog-button" id="closeApiKeyModal">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <header>
+      <button class="theme-toggle" id="themeToggle">☀️</button>
+      <div class="logo" id="mainLogo">MaUd</div>
+      <button class="menu-toggle" id="menuToggle">☰</button>
+    </header>
+    
+    <div class="main-interface" id="mainInterface">
+      <div class="input-area">
+        <textarea id="mainInput" placeholder="Спросите у ИИ..."></textarea>
+      </div>
+      <div class="response-area" id="mainResponse">Здесь появится ответ от ИИ.</div>
+      <button class="new-dialog-button" id="newDialogMain">Новый диалог</button>
+    </div>
+    
+    <div class="chat-interface" id="chatInterface">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message ai-message">Привет! Я ваш AI-ассистент MaUd. Чем могу помочь?</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" class="chat-input" id="chatInput" placeholder="Введите сообщение...">
+        <button class="send-button" id="sendButton">Отправить</button>
+      </div>
+      <button class="new-dialog-button" id="newDialogChat">Новый диалог</button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Инициализация приложения...');
+      
+      // API ключ для Gemini (будет загружен из localStorage)
+      let API_KEY = localStorage.getItem('maud_api_key') || "";
+      const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+
+      // Основные элементы
+      const splash = document.getElementById('splash');
+      const customCursor = document.getElementById('customCursor');
+      const themeToggle = document.getElementById('themeToggle');
+      const menuToggle = document.getElementById('menuToggle');
+      const menuBack = document.getElementById('menuBack');
+      const settingsBack = document.getElementById('settingsBack');
+      const overlay = document.getElementById('overlay');
+      const menu = document.getElementById('menu');
+      const openSettingsFromMenu = document.getElementById('openSettingsFromMenu');
+      const settingsPanel = document.getElementById('settingsPanel');
+      const toggleChatMode = document.getElementById('toggleChatMode');
+      const mainInterface = document.getElementById('mainInterface');
+      const chatInterface = document.getElementById('chatInterface');
+      const mainInput = document.getElementById('mainInput');
+      const mainResponse = document.getElementById('mainResponse');
+      const chatInput = document.getElementById('chatInput');
+      const chatMessages = document.getElementById('chatMessages');
+      const sendButton = document.getElementById('sendButton');
+      const newDialogMain = document.getElementById('newDialogMain');
+      const newDialogChat = document.getElementById('newDialogChat');
+      const mainLogo = document.getElementById('mainLogo');
+      const viewBlog = document.getElementById('viewBlog');
+      const colorPickerButton = document.getElementById('colorPickerButton');
+      const colorPicker = document.getElementById('colorPicker');
+      const sizeSlider = document.getElementById('sizeSlider');
+      const sizeSliderValue = document.getElementById('sizeSliderValue');
+      const sidebar = document.getElementById('sidebar');
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      const backToMenuButton = document.getElementById('backToMenuButton');
+      const sidebarChatList = document.getElementById('sidebarChatList');
+      const openApiKeyModal = document.getElementById('openApiKeyModal');
+      const apiKeyOverlay = document.getElementById('apiKeyOverlay');
+      const apiKeyInput = document.getElementById('apiKeyInput');
+      const saveApiKey = document.getElementById('saveApiKey');
+      const closeApiKeyModal = document.getElementById('closeApiKeyModal');
+      const apiKeyStatus = document.getElementById('apiKeyStatus');
+
+      // Переменные состояния
+      let isCursorEnabled = true;
+      let selectedCursorColor = 'rgba(139, 92, 246, 0.5)';
+      let cursorSize = 0;
+      let isChatMode = false;
+      let currentChatId = null;
+      let chats = {};
+
+      // Функция для скрытия splash экрана
+      function hideSplash() {
+        console.log('Скрытие splash экрана...');
+        if (splash) {
+          splash.classList.add('hidden');
+          setTimeout(function() {
+            splash.style.display = 'none';
+            console.log('Splash экран скрыт');
+          }, 500);
+        }
+      }
+
+      // Инициализация курсора
+      function initCursor() {
+        console.log('Инициализация курсора...');
+        
+        function updateCursor() {
+          if (isCursorEnabled) {
+            customCursor.style.display = 'block';
+            customCursor.style.backgroundColor = selectedCursorColor;
+            const baseSize = 20;
+            const scaleFactor = Math.pow(1.5, cursorSize);
+            const newSize = baseSize * scaleFactor;
+            customCursor.style.width = newSize + 'px';
+            customCursor.style.height = newSize + 'px';
+            document.body.style.cursor = 'none';
+          } else {
+            customCursor.style.display = 'none';
+            document.body.style.cursor = 'default';
+          }
+        }
+
+        document.addEventListener('mousemove', function(e) {
+          if (isCursorEnabled && customCursor) {
+            customCursor.style.left = e.clientX + 'px';
+            customCursor.style.top = e.clientY + 'px';
+          }
+        });
+
+        document.addEventListener('mousedown', function() {
+          if (isCursorEnabled) {
+            customCursor.style.transform = 'translate(-50%, -50%) scale(0.8)';
+          }
+        });
+
+        document.addEventListener('mouseup', function() {
+          if (isCursorEnabled) {
+            customCursor.style.transform = 'translate(-50%, -50%) scale(1)';
+          }
+        });
+
+        // Обработчики для настроек курсора
+        colorPickerButton.addEventListener('click', function() {
+          colorPicker.click();
+        });
+
+        colorPicker.addEventListener('change', function(e) {
+          selectedCursorColor = e.target.value;
+          colorPickerButton.style.backgroundColor = selectedCursorColor;
+          updateCursor();
+        });
+
+        sizeSlider.addEventListener('input', function() {
+          cursorSize = parseFloat(sizeSlider.value);
+          const scaleFactor = Math.pow(1.5, cursorSize);
+          sizeSliderValue.textContent = scaleFactor.toFixed(1) + 'x';
+          updateCursor();
+        });
+
+        updateCursor();
+      }
+
+      // Функция для работы с Gemini API
+      async function getAIResponse(message, isChat = false, chatHistory = []) {
+        console.log('Запрос к Gemini API...');
+        
+        // Проверка наличия API ключа
+        if (!API_KEY) {
+          return "Ошибка: API ключ не установлен. Пожалуйста, настройте его в меню.";
+        }
+        
+        mainLogo.classList.add('generating');
+        
+        try {
+          let prompt = "Ты полезный AI-ассистент MaUd. Отвечай на русском языке. Будь вежливым и полезным.\n\n";
+          
+          if (isChat && chatHistory.length > 0) {
+            const recentHistory = chatHistory.slice(-6);
+            recentHistory.forEach(msg => {
+              if (msg.isUser) {
+                prompt += "Пользователь: " + msg.text + "\n";
+              } else {
+                prompt += "Ассистент: " + msg.text + "\n";
+              }
+            });
+          }
+          
+          prompt += "Пользователь: " + message + "\nАссистент:";
+
+          const requestBody = {
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1000,
+            }
+          };
+
+          const response = await fetch(GEMINI_API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            throw new Error('Ошибка API: ' + response.status);
+          }
+
+          const data = await response.json();
+          
+          if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+            const aiResponse = data.candidates[0].content.parts[0].text;
+            mainLogo.classList.remove('generating');
+            return aiResponse;
+          } else {
+            throw new Error("Неверный формат ответа от API");
+          }
+
+        } catch (error) {
+          console.error("Ошибка при запросе к Gemini:", error);
+          mainLogo.classList.remove('generating');
+          return "Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте еще раз. Ошибка: " + error.message;
+        }
+      }
+
+      // Функция для создания индикатора набора
+      function createTypingIndicator() {
+        const typingElement = document.createElement('div');
+        typingElement.className = 'message ai-message typing-indicator';
+        typingElement.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        return typingElement;
+      }
+
+      // Обработчики для основного интерфейса
+      async function handleMainInput(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const text = mainInput.value.trim();
+          if (text) {
+            mainResponse.textContent = "Думаю...";
+            try {
+              const aiResponse = await getAIResponse(text, false);
+              mainResponse.textContent = aiResponse;
+              mainInput.value = '';
+            } catch (error) {
+              mainResponse.textContent = "Ошибка: " + error.message;
+            }
+          }
+        }
+      }
+
+      // Обработчики для чата
+      async function handleChatInput() {
+        const text = chatInput.value.trim();
+        if (text) {
+          // Добавляем сообщение пользователя
+          const userMessage = document.createElement('div');
+          userMessage.className = 'message user-message';
+          userMessage.textContent = text;
+          chatMessages.appendChild(userMessage);
+          
+          chatInput.value = '';
+          
+          // Добавляем индикатор загрузки
+          const typingIndicator = createTypingIndicator();
+          chatMessages.appendChild(typingIndicator);
+          
+          // Прокручиваем вниз
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          
+          try {
+            // Получаем ответ от ИИ
+            const aiResponse = await getAIResponse(text, true, chats[currentChatId]?.messages || []);
+            
+            // Убираем индикатор и добавляем ответ
+            typingIndicator.remove();
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'message ai-message';
+            aiMessage.textContent = aiResponse;
+            chatMessages.appendChild(aiMessage);
+            
+            // Сохраняем в историю
+            if (currentChatId && chats[currentChatId]) {
+              chats[currentChatId].messages.push(
+                { text: text, isUser: true },
+                { text: aiResponse, isUser: false }
+              );
+              // Обновляем заголовок чата
+              chats[currentChatId].title = text.length > 30 ? text.substring(0, 30) + "..." : text;
+              localStorage.setItem('maud_chats', JSON.stringify(chats));
+              updateSidebarChats();
+            }
+            
+          } catch (error) {
+            typingIndicator.remove();
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'message ai-message';
+            errorMessage.textContent = "Извините, произошла ошибка. Пожалуйста, попробуйте еще раз.";
+            chatMessages.appendChild(errorMessage);
+          }
+          
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      }
+
+      // Обновление списка чатов в сайдбаре
+      function updateSidebarChats() {
+        sidebarChatList.innerHTML = '';
+        
+        // Сортируем чаты по времени создания (новые сверху)
+        const sortedChats = Object.values(chats).sort((a, b) => b.timestamp - a.timestamp);
+        
+        sortedChats.forEach(chat => {
+          const chatItem = document.createElement('div');
+          chatItem.className = 'sidebar-chat-item';
+          chatItem.textContent = chat.title;
+          
+          // Обработчик выбора чата
+          chatItem.addEventListener('click', () => {
+            loadChat(chat.id);
+            sidebar.classList.remove('active');
+            sidebarToggle.classList.remove('active');
+            sidebarToggle.textContent = '→';
+          });
+          
+          // Кнопка удаления чата
+          const deleteButton = document.createElement('button');
+          deleteButton.className = 'sidebar-chat-delete';
+          deleteButton.textContent = '×';
+          deleteButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteChat(chat.id);
+          });
+          
+          chatItem.appendChild(deleteButton);
+          sidebarChatList.appendChild(chatItem);
+        });
+      }
+      
+      // Загрузка чата
+      function loadChat(chatId) {
+        if (chats[chatId]) {
+          currentChatId = chatId;
+          chatMessages.innerHTML = '';
+          
+          chats[chatId].messages.forEach(msg => {
+            const messageElement = document.createElement('div');
+            messageElement.className = msg.isUser ? 'message user-message' : 'message ai-message';
+            messageElement.textContent = msg.text;
+            chatMessages.appendChild(messageElement);
+          });
+          
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      }
+      
+      // Удаление чата
+      function deleteChat(chatId) {
+        if (confirm('Вы уверены, что хотите удалить этот чат?')) {
+          delete chats[chatId];
+          localStorage.setItem('maud_chats', JSON.stringify(chats));
+          updateSidebarChats();
+          
+          // Если удаляем текущий чат, создаем новый
+          if (currentChatId === chatId) {
+            startNewChat();
+          }
+        }
+      }
+
+      // Переключение режимов
+      function switchToChatMode() {
+        isChatMode = true;
+        mainInterface.style.display = 'none';
+        chatInterface.classList.add('active');
+        sidebar.classList.add('active');
+        sidebarToggle.classList.add('active');
+        sidebarToggle.classList.remove('hidden');
+        sidebarToggle.textContent = '←';
+        toggleChatMode.textContent = 'Выключить';
+        
+        if (!currentChatId) {
+          startNewChat();
+        }
+        
+        updateSidebarChats();
+      }
+
+      function switchToMainMode() {
+        isChatMode = false;
+        chatInterface.classList.remove('active');
+        mainInterface.style.display = 'flex';
+        sidebar.classList.remove('active');
+        sidebarToggle.classList.remove('active');
+        sidebarToggle.classList.add('hidden');
+        sidebarToggle.textContent = '→';
+        toggleChatMode.textContent = 'Включить';
+        currentChatId = null;
+      }
+
+      function startNewChat() {
+        const newChatId = 'chat_' + Date.now();
+        currentChatId = newChatId;
+        chats[newChatId] = {
+          id: newChatId,
+          title: 'Новый чат',
+          messages: [{ text: "Привет! Я ваш AI-ассистент MaUd. Чем могу помочь?", isUser: false }],
+          timestamp: Date.now()
+        };
+        chatMessages.innerHTML = '';
+        const welcomeMessage = document.createElement('div');
+        welcomeMessage.className = 'message ai-message';
+        welcomeMessage.textContent = "Привет! Я ваш AI-ассистент MaUd. Чем могу помочь?";
+        chatMessages.appendChild(welcomeMessage);
+        localStorage.setItem('maud_chats', JSON.stringify(chats));
+        updateSidebarChats();
+      }
+
+      // Управление меню и настройками
+      function openMenu() {
+        menu.classList.add('active');
+        overlay.classList.add('active');
+      }
+
+      function closeMenu() {
+        menu.classList.remove('active');
+        overlay.classList.remove('active');
+      }
+
+      function openSettingsPanel() {
+        settingsPanel.classList.add('active');
+        overlay.classList.add('active');
+        menu.classList.remove('active');
+      }
+
+      function closeSettingsPanel() {
+        settingsPanel.classList.remove('active');
+        overlay.classList.remove('active');
+      }
+
+      function toggleTheme() {
+        const currentTheme = document.body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', newTheme);
+        themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      }
+
+      // Управление API ключом
+      function openApiKeyModal() {
+        apiKeyOverlay.style.display = 'block';
+        apiKeyInput.value = API_KEY;
+        closeMenu();
+      }
+
+      function closeApiKeyModal() {
+        apiKeyOverlay.style.display = 'none';
+        apiKeyStatus.textContent = '';
+        apiKeyStatus.className = 'api-key-status';
+      }
+
+      function saveApiKeyHandler() {
+        const newApiKey = apiKeyInput.value.trim();
+        if (newApiKey) {
+          API_KEY = newApiKey;
+          localStorage.setItem('maud_api_key', API_KEY);
+          apiKeyStatus.textContent = 'API ключ успешно сохранен!';
+          apiKeyStatus.className = 'api-key-status valid';
+        } else {
+          apiKeyStatus.textContent = 'Пожалуйста, введите API ключ';
+          apiKeyStatus.className = 'api-key-status invalid';
+        }
+      }
+
+      // Создание фоновых шаров
+      function createBackgroundBalls() {
+        const background = document.getElementById('background');
+        if (!background) return;
+        
+        const ballCount = 15;
+        for (let i = 0; i < ballCount; i++) {
+          const ball = document.createElement('div');
+          ball.className = 'ball';
+          const size = 60 + Math.random() * 100;
+          ball.style.width = size + 'px';
+          ball.style.height = size + 'px';
+          ball.style.left = Math.random() * 90 + '%';
+          ball.style.top = Math.random() * 90 + '%';
+          ball.style.background = 'hsl(' + Math.floor(Math.random() * 360) + ', 70%, 60%)';
+          ball.style.animation = 'float ' + (15 + Math.random() * 15) + 's infinite ease-in-out, color ' + (20 + Math.random() * 20) + 's infinite linear';
+          background.appendChild(ball);
+        }
+      }
+
+      // Инициализация приложения
+      function initializeApp() {
+        console.log('Инициализация приложения...');
+        
+        // Скрываем splash через 2 секунды
+        setTimeout(hideSplash, 2000);
+        
+        // Инициализация курсора
+        initCursor();
+        
+        // Создание фона
+        createBackgroundBalls();
+        
+        // Загрузка чатов из localStorage
+        const storedChats = localStorage.getItem('maud_chats');
+        if (storedChats) {
+          try {
+            chats = JSON.parse(storedChats);
+          } catch (e) {
+            console.error('Ошибка загрузки чатов:', e);
+          }
+        }
+
+        // Назначение обработчиков событий
+        mainInput.addEventListener('keydown', handleMainInput);
+        sendButton.addEventListener('click', handleChatInput);
+        chatInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            handleChatInput();
+          }
+        });
+        
+        themeToggle.addEventListener('click', toggleTheme);
+        menuToggle.addEventListener('click', openMenu);
+        menuBack.addEventListener('click', closeMenu);
+        settingsBack.addEventListener('click', closeSettingsPanel);
+        overlay.addEventListener('click', function() {
+          closeMenu();
+          closeSettingsPanel();
+        });
+        
+        openSettingsFromMenu.addEventListener('click', openSettingsPanel);
+        
+        toggleChatMode.addEventListener('click', function() {
+          closeMenu();
+          if (isChatMode) {
+            switchToMainMode();
+          } else {
+            switchToChatMode();
+          }
+        });
+        
+        viewBlog.addEventListener('click', function() {
+          window.open('https://maud-site.blogspot.com/', '_blank');
+        });
+        
+        newDialogMain.addEventListener('click', function() {
+          mainInput.value = '';
+          mainResponse.textContent = 'Здесь появится ответ от ИИ.';
+        });
+        
+        newDialogChat.addEventListener('click', startNewChat);
+        
+        sidebarToggle.addEventListener('click', function() {
+          sidebar.classList.toggle('active');
+          sidebarToggle.classList.toggle('active');
+          sidebarToggle.textContent = sidebar.classList.contains('active') ? '←' : '→';
+        });
+        
+        backToMenuButton.addEventListener('click', function() {
+          sidebar.classList.remove('active');
+          sidebarToggle.classList.remove('active');
+          sidebarToggle.textContent = '→';
+        });
+        
+        openApiKeyModal.addEventListener('click', openApiKeyModal);
+        closeApiKeyModal.addEventListener('click', closeApiKeyModal);
+        saveApiKey.addEventListener('click', saveApiKeyHandler);
+        
+        apiKeyOverlay.addEventListener('click', function(e) {
+          if (e.target === apiKeyOverlay) {
+            closeApiKeyModal();
+          }
+        });
+
+        console.log('Приложение инициализировано');
+      }
+
+      // Запуск инициализации
+      initializeApp();
+    });
+  </script>
+</body>
+</html>
